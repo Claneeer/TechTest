@@ -9,6 +9,8 @@ namespace TechTest.Helpers
     {
         // Scale factor based on screen resolution (1.0 = 1920x1080 baseline)
         private static float _scaleFactor = -1f;
+        private static bool _isCustomScale = false;
+
         public static float ScaleFactor
         {
             get
@@ -17,6 +19,19 @@ namespace TechTest.Helpers
                     _scaleFactor = CalculateScaleFactor();
                 return _scaleFactor;
             }
+            set
+            {
+                _scaleFactor = value;
+                _isCustomScale = true;
+            }
+        }
+
+        public static bool IsCustomScale => _isCustomScale;
+
+        public static void ResetScale()
+        {
+            _scaleFactor = CalculateScaleFactor();
+            _isCustomScale = false;
         }
 
         private static float CalculateScaleFactor()

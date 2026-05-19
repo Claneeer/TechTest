@@ -57,11 +57,11 @@ namespace TechTest.Forms
             _chkNumpad.CheckedChanged += (s, e) =>
             {
                 _keyboard.HasNumpad = _chkNumpad.Checked;
-                // Resize form and progress bar to fit numpad
-                int newWidth = _chkNumpad.Checked ? 950 : 750;
+                // Resize form and progress bar to fit numpad using scaled values
+                int newWidth = Theme.S(_chkNumpad.Checked ? 950 : 750);
                 this.Width = newWidth;
-                _progressBar.Width = newWidth - 190;
-                _btnReset.Left = newWidth - 140;
+                _progressBar.Width = newWidth - Theme.S(190);
+                _btnReset.Left = newWidth - Theme.S(140);
             };
             Controls.Add(_chkNumpad);
 

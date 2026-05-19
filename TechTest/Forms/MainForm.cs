@@ -31,32 +31,21 @@ namespace TechTest.Forms
         public MainForm()
         {
             Theme.StyleForm(this, "TechTest Notebook — Diagnóstico de Hardware", 1060, 720);
-            this.FormBorderStyle = FormBorderStyle.FixedSingle;
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.MaximizeBox = true;
+            this.MinimumSize = this.Size;
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
             BuildUI();
         }
 
         private void BuildUI()
         {
-            int cardW = Theme.S(220), cardH = Theme.S(175), gap = Theme.S(20);
-            int topRowCount = 4;
-            int topRowWidth = topRowCount * cardW + (topRowCount - 1) * gap;
-            int startX = (this.ClientSize.Width - topRowWidth) / 2;
-            int startY = Theme.S(130);
-
             _cardPanels = new Panel[_cards.Length];
 
             for (int i = 0; i < _cards.Length; i++)
             {
-                int row = i / topRowCount;
-                int col = i % topRowCount;
-                int x = startX + col * (cardW + gap);
-                int y = startY + row * (cardH + gap);
-
                 var panel = new Panel
                 {
-                    Location = new Point(x, y),
-                    Size = new Size(cardW, cardH),
                     BackColor = Color.Transparent,
                     Cursor = Cursors.Hand,
                     Tag = i
@@ -79,20 +68,164 @@ namespace TechTest.Forms
                 this.Controls.Add(panel);
             }
 
-            // System info bar (async)
+            // Arrange the card panels initially
+            RearrangeCards();
+
+            // Bottom bar panel
+            var bottomBar = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = Theme.S(45),
+                BackColor = Theme.BgDark,
+                Padding = new Padding(Theme.S(15), Theme.S(5), Theme.S(15), Theme.S(5))
+            };
+            this.Controls.Add(bottomBar);
+
+            // Scale ComboBox (Right)
+            var cmbScale = new ComboBox
+            {
+                Width = Theme.S(130),
+                Dock = DockStyle.Right,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = Theme.BgInput,
+                ForeColor = Theme.TextPrimary,
+                FlatStyle = FlatStyle.Flat,
+                Font = Theme.FontSmall
+            };
+            cmbScale.Items.AddRange(new object[] { "Auto (DPI)", "75% (Pequeno)", "100% (Padrão)", "125% (Médio)", "150% (Grande)" });
+            
+            if (!Theme.IsCustomScale)
+                cmbScale.SelectedIndex = 0;
+            else if (Math.Abs(Theme.ScaleFactor - 0.75f) < 0.01f)
+                cmbScale.SelectedIndex = 1;
+            else if (Math.Abs(Theme.ScaleFactor - 1.0f) < 0.01f)
+                cmbScale.SelectedIndex = 2;
+            else if (Math.Abs(Theme.ScaleFactor - 1.25f) < 0.01f)
+                cmbScale.SelectedIndex = 3;
+            else if (Math.Abs(Theme.ScaleFactor - 1.5f) < 0.01f)
+                cmbScale.SelectedIndex = 4;
+            else
+                cmbScale.SelectedIndex = 0;
+
+            cmbScale.SelectedIndexChanged += (s, e) =>
+            {
+                float newScale = -1f;
+                switch (cmbScale.SelectedIndex)
+                {
+                    case 0: newScale = -1f; break; // Auto
+                    case 1: newScale = 0.75f; break; // 75%
+                    case 2: newScale = 1.0f; break; // 100%
+                    case 3: newScale = 1.25f; break; // 125%
+                    case 4: newScale = 1.5f; break; // 150%
+                }
+                ChangeScale(newScale);
+            };
+
+            var lblScaleTitle = new Label
+            {
+                Text = "🖥 Ajustar Tela:  ",
+                Dock = DockStyle.Right,
+                AutoSize = true,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = Theme.FontSmall,
+                ForeColor = Theme.TextSecondary,
+                BackColor = Color.Transparent
+            };
+
+            // System info label (Left/Fill)
             _lblSysInfo = new Label
             {
                 Text = "💻 Carregando informações do sistema...",
-                Dock = DockStyle.Bottom,
-                Height = Theme.S(40),
-                TextAlign = ContentAlignment.MiddleCenter,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
                 Font = Theme.FontSmall,
                 ForeColor = Theme.TextMuted,
-                BackColor = Theme.BgDark,
-                Padding = new Padding(10, 0, 10, 0)
+                BackColor = Color.Transparent
             };
-            this.Controls.Add(_lblSysInfo);
+
+            bottomBar.Controls.Add(_lblSysInfo);
+            bottomBar.Controls.Add(lblScaleTitle);
+            bottomBar.Controls.Add(cmbScale);
+
             LoadSystemInfoAsync();
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            RearrangeCards();
+            this.Invalidate(); // Force background gradient and title text to repaint at the new size!
+        }
+
+        private void RearrangeCards()
+        {
+            if (_cardPanels == null) return;
+
+            int cardW = Theme.S(220);
+            int cardH = Theme.S(175);
+            int gap = Theme.S(20);
+
+            // Determine optimal number of columns based on current client width
+            int availableW = this.ClientSize.Width - gap * 2;
+            int cols = Math.Max(1, availableW / (cardW + gap));
+            if (cols > _cards.Length) cols = _cards.Length;
+
+            int gridW = cols * cardW + (cols - 1) * gap;
+            int startX = (this.ClientSize.Width - gridW) / 2;
+            int startY = Theme.S(130);
+
+            for (int i = 0; i < _cards.Length; i++)
+            {
+                if (_cardPanels[i] == null) continue;
+
+                int row = i / cols;
+                int col = i % cols;
+                int x = startX + col * (cardW + gap);
+                int y = startY + row * (cardH + gap);
+
+                _cardPanels[i].Location = new Point(x, y);
+                _cardPanels[i].Size = new Size(cardW, cardH);
+            }
+        }
+
+        private void ChangeScale(float scale)
+        {
+            // Avoid redundant scaling if already at that scale
+            if (scale < 0 && !Theme.IsCustomScale) return;
+            if (scale > 0 && Theme.IsCustomScale && Math.Abs(Theme.ScaleFactor - scale) < 0.01f) return;
+
+            if (scale < 0)
+            {
+                Theme.ResetScale();
+            }
+            else
+            {
+                Theme.ScaleFactor = scale;
+            }
+
+            // Save system info text to restore it without reloading async
+            string currentInfo = _lblSysInfo?.Text ?? "Carregando...";
+
+            // Remove all controls
+            this.Controls.Clear();
+
+            // Reapply styling using the new ScaleFactor!
+            Theme.StyleForm(this, "TechTest Notebook — Diagnóstico de Hardware", 1060, 720);
+
+            // Rebuild UI
+            BuildUI();
+
+            // Restore system info
+            _lblSysInfo.Text = currentInfo;
+
+            // Apply size changes and center on screen
+            this.StartPosition = FormStartPosition.CenterScreen;
+            var screen = Screen.PrimaryScreen.WorkingArea;
+            int x = (screen.Width - this.Width) / 2;
+            int y = (screen.Height - this.Height) / 2;
+            this.Location = new Point(x, y);
+
+            this.Invalidate();
         }
 
         private void SetDoubleBuffered(Panel panel)
