@@ -290,6 +290,64 @@ namespace TechTest.Forms
                 }
                 catch { }
 
+                // Correct RAM slots using Motherboard (BaseBoard) heuristic to bypass BIOS/SMBIOS generic firmware limits
+                try
+                {
+                    string boardMfr = "";
+                    string boardModel = "";
+                    using (var searcher = new ManagementObjectSearcher("SELECT Manufacturer, Product FROM Win32_BaseBoard"))
+                    {
+                        foreach (ManagementObject obj in searcher.Get())
+                        {
+                            boardMfr = obj["Manufacturer"]?.ToString() ?? "";
+                            boardModel = obj["Product"]?.ToString() ?? "";
+                            break;
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(boardModel) && totalSlots > 2)
+                    {
+                        string boardModelUpper = boardModel.ToUpperInvariant();
+                        
+                        // Chipsets that physically ONLY support 2 slots max:
+                        // H610, H510, H410, H310, H110, H81, H61, A320
+                        string[] twoSlotChipsets = new string[]
+                        {
+                            "H610", "H510", "H410", "H310", "H110", "H81", "H61", "A320"
+                        };
+
+                        bool matchFound = false;
+                        foreach (var chipset in twoSlotChipsets)
+                        {
+                            if (boardModelUpper.Contains(chipset))
+                            {
+                                totalSlots = 2;
+                                matchFound = true;
+                                break;
+                            }
+                        }
+
+                        if (!matchFound)
+                        {
+                            // Specific popular 2-slot models/keywords for chipsets that can have 4 slots (like A520, B450, B550, etc.)
+                            string[] twoSlotKeywords = new string[]
+                            {
+                                "-K", "-HDV", "-HVS", "-DX", "DXV4", "A PRO", "-A PRO", "PRO-VH", "MCR-A520M"
+                            };
+
+                            foreach (var keyword in twoSlotKeywords)
+                            {
+                                if (boardModelUpper.Contains(keyword))
+                                {
+                                    totalSlots = 2;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch { }
+
                 long ramBytes = 0;
                 try
                 {
