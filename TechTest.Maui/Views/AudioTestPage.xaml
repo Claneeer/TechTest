@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:TechTest.Maui.Controls"
+             x:Class="TechTest.Maui.Views.AudioTestPage"
+             BackgroundColor="{StaticResource BgPrimary}"
+             Shell.NavBarIsVisible="False">
+
+    <Grid RowDefinitions="*">
+        <ScrollView>
+            <VerticalStackLayout Padding="20" Spacing="14">
+
+                <!-- Header with back button -->
+                <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,6">
+                    <Button Grid.Column="0"
+                            Text="← Voltar"
+                            BackgroundColor="{StaticResource BgCard}"
+                            TextColor="{StaticResource TextPrimary}"
+                            FontSize="12"
+                            BorderColor="{StaticResource Border}"
+                            BorderWidth="1"
+                            CornerRadius="8"
+                            HeightRequest="36"
+                            Padding="14,0"
+                            Clicked="OnBackClicked" />
+
+                    <Label Grid.Column="1"
+                           Text="Teste de Alto-falantes"
+                           FontSize="22"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource TextPrimary}"
+                           VerticalTextAlignment="Center"
+                           Margin="15,0,0,0" />
+                </Grid>
+
+                <!-- Description -->
+                <Label Text="Reproduza um tom de teste em cada canal para verificar se os alto-falantes funcionam corretamente."
+                       FontSize="12"
+                       TextColor="{StaticResource TextSecondary}" />
+
+                <!-- Speaker visualization area -->
+                <Frame BackgroundColor="{StaticResource BgDark}"
+                       BorderColor="{StaticResource Border}"
+                       CornerRadius="10"
+                       Padding="0"
+                       HasShadow="False">
+                    <controls:SpeakerCanvasView x:Name="SpeakerView"
+                                                 HeightRequest="220"
+                                                 HorizontalOptions="Fill" />
+                </Frame>
+
+                <!-- Sound Type Picker -->
+                <Frame BackgroundColor="{StaticResource BgCard}"
+                       BorderColor="{StaticResource Border}"
+                       CornerRadius="10"
+                       Padding="14"
+                       HasShadow="False">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Label Grid.Column="0"
+                               Text="🎵 Tipo de Som:"
+                               FontSize="13"
+                               TextColor="{StaticResource TextSecondary}"
+                               VerticalTextAlignment="Center" />
+                        <Picker x:Name="PickerSoundType"
+                                Grid.Column="1"
+                                BackgroundColor="{StaticResource BgInput}"
+                                TextColor="{StaticResource TextPrimary}"
+                                FontSize="12"
+                                HeightRequest="36"
+                                SelectedIndex="0"
+                                SelectedIndexChanged="OnSoundTypeChanged">
+                            <Picker.ItemsSource>
+                                <x:Array Type="{x:Type x:String}">
+                                    <x:String>Senoidal</x:String>
+                                    <x:String>Quadrada</x:String>
+                                    <x:String>Ruído Branco</x:String>
+                                    <x:String>Varredura</x:String>
+                                    <x:String>Bipe</x:String>
+                                </x:Array>
+                            </Picker.ItemsSource>
+                        </Picker>
+                    </Grid>
+                </Frame>
+
+                <!-- Frequency slider -->
+                <Frame BackgroundColor="{StaticResource BgCard}"
+                       BorderColor="{StaticResource Border}"
+                       CornerRadius="10"
+                       Padding="14"
+                       HasShadow="False">
+                    <VerticalStackLayout Spacing="8">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                            <Label Grid.Column="0"
+                                   Text="🔊 Frequência:"
+                                   FontSize="13"
+                                   TextColor="{StaticResource TextSecondary}"
+                                   VerticalTextAlignment="Center" />
+                            <Slider x:Name="SliderFrequency"
+                                    Grid.Column="1"
+                                    Minimum="50"
+                                    Maximum="15000"
+                                    Value="440"
+                                    MinimumTrackColor="{StaticResource Accent}"
+                                    MaximumTrackColor="{StaticResource Border}"
+                                    ThumbColor="{StaticResource AccentLight}"
+                                    ValueChanged="OnFrequencyChanged" />
+                            <Label x:Name="LblFrequency"
+                                   Grid.Column="2"
+                                   Text="440 Hz"
+                                   FontSize="13"
+                                   TextColor="{StaticResource TextPrimary}"
+                                   VerticalTextAlignment="Center"
+                                   WidthRequest="70"
+                                   HorizontalTextAlignment="End" />
+                        </Grid>
+                        <!-- Preset buttons -->
+                        <Grid ColumnDefinitions="*,*,*,*,*" ColumnSpacing="6">
+                            <Button Grid.Column="0"
+                                    Text="100Hz"
+                                    BackgroundColor="{StaticResource BgInput}"
+                                    TextColor="{StaticResource TextSecondary}"
+                                    FontSize="10"
+                                    CornerRadius="6"
+                                    HeightRequest="30"
+                                    Padding="0"
+                                    BorderColor="{StaticResource Border}"
+                                    BorderWidth="1"
+                                    Clicked="OnPreset100Hz" />
+                            <Button Grid.Column="1"
+                                    Text="440Hz"
+                                    BackgroundColor="{StaticResource BgInput}"
+                                    TextColor="{StaticResource TextSecondary}"
+                                    FontSize="10"
+                                    CornerRadius="6"
+                                    HeightRequest="30"
+                                    Padding="0"
+                                    BorderColor="{StaticResource Border}"
+                                    BorderWidth="1"
+                                    Clicked="OnPreset440Hz" />
+                            <Button Grid.Column="2"
+                                    Text="1kHz"
+                                    BackgroundColor="{StaticResource BgInput}"
+                                    TextColor="{StaticResource TextSecondary}"
+                                    FontSize="10"
+                                    CornerRadius="6"
+                                    HeightRequest="30"
+                                    Padding="0"
+                                    BorderColor="{StaticResource Border}"
+                                    BorderWidth="1"
+                                    Clicked="OnPreset1kHz" />
+                            <Button Grid.Column="3"
+                                    Text="4kHz"
+                                    BackgroundColor="{StaticResource BgInput}"
+                                    TextColor="{StaticResource TextSecondary}"
+                                    FontSize="10"
+                                    CornerRadius="6"
+                                    HeightRequest="30"
+                                    Padding="0"
+                                    BorderColor="{StaticResource Border}"
+                                    BorderWidth="1"
+                                    Clicked="OnPreset4kHz" />
+                            <Button Grid.Column="4"
+                                    Text="10kHz"
+                                    BackgroundColor="{StaticResource BgInput}"
+                                    TextColor="{StaticResource TextSecondary}"
+                                    FontSize="10"
+                                    CornerRadius="6"
+                                    HeightRequest="30"
+                                    Padding="0"
+                                    BorderColor="{StaticResource Border}"
+                                    BorderWidth="1"
+                                    Clicked="OnPreset10kHz" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Volume slider -->
+                <Frame BackgroundColor="{StaticResource BgCard}"
+                       BorderColor="{StaticResource Border}"
+                       CornerRadius="10"
+                       Padding="14"
+                       HasShadow="False">
+                    <VerticalStackLayout Spacing="6">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                            <Label Grid.Column="0"
+                                   Text="🔈 Volume:"
+                                   FontSize="13"
+                                   TextColor="{StaticResource TextSecondary}"
+                                   VerticalTextAlignment="Center" />
+                            <Slider x:Name="SliderVolume"
+                                    Grid.Column="1"
+                                    Minimum="0"
+                                    Maximum="2.0"
+                                    Value="0.5"
+                                    MinimumTrackColor="{StaticResource Accent}"
+                                    MaximumTrackColor="{StaticResource Border}"
+                                    ThumbColor="{StaticResource AccentLight}"
+                                    ValueChanged="OnVolumeChanged" />
+                            <Label x:Name="LblVolume"
+                                   Grid.Column="2"
+                                   Text="50%"
+                                   FontSize="13"
+                                   TextColor="{StaticResource TextPrimary}"
+                                   VerticalTextAlignment="Center"
+                                   WidthRequest="55"
+                                   HorizontalTextAlignment="End" />
+                        </Grid>
+                        <Label Text="(>100% = amplificação para notebooks com volume baixo)"
+                               FontSize="10"
+                               TextColor="{StaticResource TextMuted}" />
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Action buttons -->
+                <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
+                    <Button x:Name="BtnLeft"
+                            Grid.Column="0"
+                            Text="🔈 Esquerdo"
+                            BackgroundColor="{StaticResource Accent}"
+                            TextColor="{StaticResource TextPrimary}"
+                            FontSize="12"
+                            CornerRadius="8"
+                            HeightRequest="44"
+                            Clicked="OnLeftClicked" />
+                    <Button x:Name="BtnRight"
+                            Grid.Column="1"
+                            Text="🔈 Direito"
+                            BackgroundColor="{StaticResource Accent}"
+                            TextColor="{StaticResource TextPrimary}"
+                            FontSize="12"
+                            CornerRadius="8"
+                            HeightRequest="44"
+                            Clicked="OnRightClicked" />
+                    <Button x:Name="BtnBoth"
+                            Grid.Column="2"
+                            Text="🔊 Ambos"
+                            BackgroundColor="{StaticResource Accent}"
+                            TextColor="{StaticResource TextPrimary}"
+                            FontSize="12"
+                            CornerRadius="8"
+                            HeightRequest="44"
+                            Clicked="OnBothClicked" />
+                    <Button x:Name="BtnStopAudio"
+                            Grid.Column="3"
+                            Text="⏹ Parar"
+                            BackgroundColor="{StaticResource BgCard}"
+                            TextColor="{StaticResource TextPrimary}"
+                            FontSize="12"
+                            CornerRadius="8"
+                            HeightRequest="44"
+                            BorderColor="{StaticResource Border}"
+                            BorderWidth="1"
+                            Clicked="OnStopClicked" />
+                </Grid>
+
+                <!-- Status -->
+                <Label x:Name="LblStatus"
+                       Text="⏸ Aguardando..."
+                       FontSize="13"
+                       TextColor="{StaticResource TextSecondary}"
+                       Margin="0,0,0,20" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

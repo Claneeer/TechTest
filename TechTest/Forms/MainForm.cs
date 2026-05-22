@@ -21,12 +21,13 @@ namespace TechTest.Forms
             ("⌨", "Teclado", "Teste todas as teclas", typeof(KeyboardTestForm)),
             ("🖱", "Touchpad", "Teste movimento e cliques", typeof(TouchpadTestForm)),
             ("🔋", "Bateria", "Verifique saúde da bateria", typeof(BatteryTestForm)),
-            ("🔥", "FurMark", "Teste de estresse da GPU", (Type)null),
+            ("💻", "Especificações", "Hardware e Service Tag (SA/ST)", (Type)null),
         };
 
         private Panel[] _cardPanels;
         private int _hoveredIndex = -1;
         private Label _lblSysInfo;
+        private HardwareSpecs _specs = new HardwareSpecs();
 
         public MainForm()
         {
@@ -36,6 +37,7 @@ namespace TechTest.Forms
             this.MinimumSize = this.Size;
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
             BuildUI();
+            LoadHardwareSpecsAsync();
         }
 
         private void BuildUI()
@@ -60,8 +62,8 @@ namespace TechTest.Forms
                 {
                     if (_cards[index].formType != null)
                         OpenTest(_cards[index].formType);
-                    else
-                        LaunchFurMark();
+                    else if (index == 7)
+                        OpenSpecsForm();
                 };
 
                 _cardPanels[i] = panel;
@@ -132,6 +134,29 @@ namespace TechTest.Forms
                 BackColor = Color.Transparent
             };
 
+            var spacer = new Label
+            {
+                Width = Theme.S(25),
+                Dock = DockStyle.Right,
+                BackColor = Color.Transparent
+            };
+
+            var btnFurmark = new Button
+            {
+                Text = "🔥 FurMark Stress",
+                Width = Theme.S(145),
+                Dock = DockStyle.Right,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Theme.BgCard,
+                ForeColor = Theme.TextPrimary,
+                Font = Theme.FontSmall,
+                Cursor = Cursors.Hand
+            };
+            btnFurmark.FlatAppearance.BorderSize = 1;
+            btnFurmark.FlatAppearance.BorderColor = Theme.Border;
+            btnFurmark.FlatAppearance.MouseOverBackColor = Theme.BgCardHover;
+            btnFurmark.Click += (s, e) => LaunchFurMark();
+
             // System info label (Left/Fill)
             _lblSysInfo = new Label
             {
@@ -143,9 +168,12 @@ namespace TechTest.Forms
                 BackColor = Color.Transparent
             };
 
-            bottomBar.Controls.Add(_lblSysInfo);
-            bottomBar.Controls.Add(lblScaleTitle);
+            // Order of adding controls determines docking layout (first added with Dock = Right is rightmost)
             bottomBar.Controls.Add(cmbScale);
+            bottomBar.Controls.Add(lblScaleTitle);
+            bottomBar.Controls.Add(spacer);
+            bottomBar.Controls.Add(btnFurmark);
+            bottomBar.Controls.Add(_lblSysInfo);
 
             LoadSystemInfoAsync();
         }
@@ -209,8 +237,16 @@ namespace TechTest.Forms
             // Remove all controls
             this.Controls.Clear();
 
+            // Reset MinimumSize to Size.Empty so the window can shrink when scaling down
+            this.MinimumSize = Size.Empty;
+
             // Reapply styling using the new ScaleFactor!
             Theme.StyleForm(this, "TechTest Notebook — Diagnóstico de Hardware", 1060, 720);
+
+            // Restore sizable/maximizable properties that StyleForm overwrites
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.MaximizeBox = true;
+            this.MinimumSize = this.Size;
 
             // Rebuild UI
             BuildUI();
@@ -304,6 +340,40 @@ namespace TechTest.Forms
                 }
             }
 
+            if (index == 7)
+            {
+                // Draw a beautiful "Especificações" card
+                using (var titleFont = Theme.FontCardTitle)
+                {
+                    var titleSize = g.MeasureString("Especificações", titleFont);
+                    float titleX = (rect.Width - titleSize.Width) / 2;
+                    g.DrawString("Especificações", titleFont, new SolidBrush(Theme.TextPrimary), titleX, Theme.S(12));
+                }
+
+                // Draw each detail row inside the card
+                int startY = Theme.S(38);
+                int lineH = Theme.S(24);
+
+                DrawSpecRow(g, "💻 Empresa:", _specs.Manufacturer, startY, rect.Width); startY += lineH;
+                DrawSpecRow(g, "⚡ CPU:", _specs.CPU, startY, rect.Width); startY += lineH;
+                DrawSpecRow(g, "🧠 RAM:", _specs.RAM, startY, rect.Width); startY += lineH;
+                DrawSpecRow(g, "🎮 GPU:", _specs.GPU, startY, rect.Width); startY += lineH;
+                DrawSpecRow(g, "🏷️ SA/ST:", _specs.ServiceTag, startY, rect.Width);
+
+                // Bottom hint on hover
+                if (hovered)
+                {
+                    using (var hintFont = Theme.FontSmall)
+                    {
+                        string hint = "Clique para copiar tudo";
+                        var hintSize = g.MeasureString(hint, hintFont);
+                        float hintX = (rect.Width - hintSize.Width) / 2;
+                        g.DrawString(hint, hintFont, new SolidBrush(Theme.AccentLight), hintX, rect.Height - Theme.S(22));
+                    }
+                }
+                return;
+            }
+
             var card = _cards[index];
 
             // Icon
@@ -345,6 +415,14 @@ namespace TechTest.Forms
         private void OpenTest(Type formType)
         {
             using (var form = (Form)Activator.CreateInstance(formType))
+            {
+                form.ShowDialog(this);
+            }
+        }
+
+        private void OpenSpecsForm()
+        {
+            using (var form = new SpecsForm())
             {
                 form.ShowDialog(this);
             }
@@ -428,5 +506,201 @@ namespace TechTest.Forms
                     "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+
+        private async void LoadHardwareSpecsAsync()
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    // 1. CPU
+                    using (var searcher = new ManagementObjectSearcher("SELECT Name FROM Win32_Processor"))
+                    {
+                        foreach (ManagementObject obj in searcher.Get())
+                        {
+                            _specs.CPU = CleanCpuName(obj["Name"]?.ToString() ?? "N/A");
+                            break;
+                        }
+                    }
+
+                    // 2. Manufacturer / Model (Empresa)
+                    using (var searcher = new ManagementObjectSearcher("SELECT Manufacturer, Model FROM Win32_ComputerSystem"))
+                    {
+                        foreach (ManagementObject obj in searcher.Get())
+                        {
+                            string manufacturer = obj["Manufacturer"]?.ToString() ?? "N/A";
+                            string model = obj["Model"]?.ToString() ?? "N/A";
+                            _specs.Manufacturer = CleanManufacturerName(manufacturer, model);
+                            break;
+                        }
+                    }
+
+                    // 3. RAM
+                    long ramBytes = 0;
+                    using (var searcher = new ManagementObjectSearcher("SELECT Capacity FROM Win32_PhysicalMemory"))
+                    {
+                        foreach (ManagementObject obj in searcher.Get())
+                        {
+                            ramBytes += Convert.ToInt64(obj["Capacity"] ?? 0);
+                        }
+                    }
+                    if (ramBytes > 0)
+                    {
+                        double ramGb = ramBytes / (1024.0 * 1024.0 * 1024.0);
+                        _specs.RAM = $"{Math.Round(ramGb)} GB";
+                    }
+                    else
+                    {
+                        // Fallback
+                        long ramMB = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (1024 * 1024);
+                        _specs.RAM = $"{Math.Round(ramMB / 1024.0)} GB";
+                    }
+
+                    // 4. GPU (Video Controller)
+                    using (var searcher = new ManagementObjectSearcher("SELECT Name FROM Win32_VideoController"))
+                    {
+                        foreach (ManagementObject obj in searcher.Get())
+                        {
+                            _specs.GPU = CleanGpuName(obj["Name"]?.ToString() ?? "N/A");
+                            break;
+                        }
+                    }
+
+                    // 5. Service Tag (SA/ST) / Serial Number
+                    using (var searcher = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_Bios"))
+                    {
+                        foreach (ManagementObject obj in searcher.Get())
+                        {
+                            _specs.ServiceTag = obj["SerialNumber"]?.ToString()?.Trim() ?? "N/A";
+                            break;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Erro ao carregar especificações de hardware: {ex.Message}");
+                }
+            });
+
+            // Refresh UI once loaded
+            try
+            {
+                if (!this.IsDisposed && this.IsHandleCreated)
+                {
+                    this.Invoke((Action)(() =>
+                    {
+                        if (_cardPanels != null && _cardPanels.Length > 7 && _cardPanels[7] != null)
+                        {
+                            _cardPanels[7].Invalidate();
+                        }
+                    }));
+                }
+            }
+            catch { }
+        }
+
+        private string CleanCpuName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "N/A";
+            name = name.Replace("(R)", "").Replace("(TM)", "").Replace("CPU", "").Trim();
+            name = name.Replace("Intel ", "").Replace("AMD ", "");
+            int indexAt = name.IndexOf('@');
+            if (indexAt > 0) name = name.Substring(0, indexAt).Trim();
+            return name;
+        }
+
+        private string CleanManufacturerName(string manufacturer, string model)
+        {
+            if (string.IsNullOrEmpty(manufacturer) || manufacturer == "N/A") return model;
+            string m = manufacturer.ToUpper();
+            if (m.Contains("DELL")) manufacturer = "Dell";
+            else if (m.Contains("LENOVO")) manufacturer = "Lenovo";
+            else if (m.Contains("HP") || m.Contains("HEWLETT-PACKARD")) manufacturer = "HP";
+            else if (m.Contains("ASUS")) manufacturer = "ASUS";
+            else if (m.Contains("ACER")) manufacturer = "Acer";
+            else if (m.Contains("APPLE")) manufacturer = "Apple";
+            else if (m.Contains("SAMSUNG")) manufacturer = "Samsung";
+            else if (m.Contains("POSITIVO")) manufacturer = "Positivo";
+            else if (m.Contains("GIGABYTE")) manufacturer = "Gigabyte";
+            else if (m.Contains("MSI")) manufacturer = "MSI";
+
+            if (!string.IsNullOrEmpty(model) && model != "N/A")
+            {
+                if (model.ToUpper().StartsWith(manufacturer.ToUpper()))
+                {
+                    model = model.Substring(manufacturer.Length).Trim();
+                }
+                return $"{manufacturer} {model}";
+            }
+            return manufacturer;
+        }
+
+        private string CleanGpuName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "N/A";
+            name = name.Replace("(R)", "").Replace("(TM)", "").Replace("Graphics", "Graph.").Trim();
+            name = name.Replace("Intel ", "").Replace("NVIDIA ", "").Replace("AMD ", "");
+            return name;
+        }
+
+        private void DrawSpecRow(Graphics g, string label, string value, int y, int cardWidth)
+        {
+            using (var labelFont = Theme.FontSmall)
+            using (var valueFont = Theme.FontSmall)
+            {
+                g.DrawString(label, labelFont, new SolidBrush(Theme.TextSecondary), Theme.S(15), y);
+
+                var labelSize = g.MeasureString(label, labelFont);
+                float valueX = Theme.S(15) + labelSize.Width + Theme.S(5);
+                float availableWidth = cardWidth - valueX - Theme.S(15);
+
+                string truncatedValue = value;
+                var valueSize = g.MeasureString(truncatedValue, valueFont);
+                if (valueSize.Width > availableWidth)
+                {
+                    while (truncatedValue.Length > 3 && g.MeasureString(truncatedValue + "...", valueFont).Width > availableWidth)
+                    {
+                        truncatedValue = truncatedValue.Substring(0, truncatedValue.Length - 1);
+                    }
+                    truncatedValue += "...";
+                }
+
+                g.DrawString(truncatedValue, valueFont, new SolidBrush(Theme.TextPrimary), valueX, y);
+            }
+        }
+
+        private void CopySpecsToClipboard()
+        {
+            try
+            {
+                string text = $"--- INFORMAÇÕES DO HARDWARE ---\n" +
+                              $"Empresa/Modelo: {_specs.Manufacturer}\n" +
+                              $"Processador: {_specs.CPU}\n" +
+                              $"Memória RAM: {_specs.RAM}\n" +
+                              $"Placa de Vídeo: {_specs.GPU}\n" +
+                              $"Service Tag / SA/ST: {_specs.ServiceTag}\n" +
+                              $"-------------------------------";
+                Clipboard.SetText(text);
+                MessageBox.Show(
+                    "Informações de hardware copiadas com sucesso para a área de transferência!",
+                    "Sucesso",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Erro ao copiar para a área de transferência:\n{ex.Message}",
+                    "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+    }
+
+    public class HardwareSpecs
+    {
+        public string CPU { get; set; } = "Carregando...";
+        public string Manufacturer { get; set; } = "Carregando...";
+        public string RAM { get; set; } = "Carregando...";
+        public string GPU { get; set; } = "Carregando...";
+        public string ServiceTag { get; set; } = "Carregando...";
     }
 }

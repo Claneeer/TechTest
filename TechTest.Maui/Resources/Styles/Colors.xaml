@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<?xaml-comp compile="true" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- Background Colors -->
+    <Color x:Key="BgDark">#0A0A14</Color>
+    <Color x:Key="BgPrimary">#121224</Color>
+    <Color x:Key="BgCard">#1C1C38</Color>
+    <Color x:Key="BgCardHover">#26264C</Color>
+    <Color x:Key="BgInput">#16162C</Color>
+
+    <!-- Accent Colors -->
+    <Color x:Key="Accent">#6366F1</Color>
+    <Color x:Key="AccentLight">#818CF8</Color>
+    <Color x:Key="AccentDark">#4338CA</Color>
+
+    <!-- Text Colors -->
+    <Color x:Key="TextPrimary">#F0F0FF</Color>
+    <Color x:Key="TextSecondary">#9494B8</Color>
+    <Color x:Key="TextMuted">#64648C</Color>
+
+    <!-- Status Colors -->
+    <Color x:Key="Success">#22C55E</Color>
+    <Color x:Key="Error">#EF4444</Color>
+    <Color x:Key="Warning">#EAB308</Color>
+
+    <!-- Border -->
+    <Color x:Key="Border">#32325A</Color>
+
+    <!-- Key Colors -->
+    <Color x:Key="KeyBlue">#3B82F6</Color>
+    <Color x:Key="KeyBlueLight">#60A5FA</Color>
+
+    <!-- Base Colors -->
+    <Color x:Key="White">#FFFFFF</Color>
+    <Color x:Key="Black">#000000</Color>
+    <Color x:Key="Transparent">Transparent</Color>
+
+</ResourceDictionary>

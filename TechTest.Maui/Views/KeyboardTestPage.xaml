@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:TechTest.Maui.Controls"
+             x:Class="TechTest.Maui.Views.KeyboardTestPage"
+             BackgroundColor="{StaticResource BgPrimary}"
+             Shell.NavBarIsVisible="False">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="20">
+        
+        <!-- Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,15">
+            <VerticalStackLayout Grid.Column="0" Spacing="4">
+                <Label Text="Teste de Teclado"
+                       FontSize="24"
+                       FontAttributes="Bold"
+                       TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Pressione as teclas do teclado físico para validar o funcionamento"
+                       FontSize="13"
+                       TextColor="{StaticResource TextSecondary}" />
+            </VerticalStackLayout>
+            
+            <Button Grid.Column="1"
+                    Text="Voltar"
+                    Clicked="OnBackClicked"
+                    BackgroundColor="{StaticResource BgCard}"
+                    TextColor="{StaticResource TextPrimary}"
+                    BorderColor="{StaticResource Border}"
+                    BorderWidth="1"
+                    CornerRadius="8"
+                    HeightRequest="40"
+                    VerticalOptions="Center" />
+        </Grid>
+
+        <!-- Stats Bar -->
+        <Frame Grid.Row="1"
+               BackgroundColor="{StaticResource BgCard}"
+               BorderColor="{StaticResource Border}"
+               CornerRadius="12"
+               Padding="15"
+               Margin="0,0,0,15"
+               HasShadow="False">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="20" VerticalOptions="Center">
+                
+                <!-- Progress -->
+                <VerticalStackLayout Grid.Column="0" Spacing="5" VerticalOptions="Center">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0"
+                               Text="Progresso do Teste"
+                               FontSize="12"
+                               TextColor="{StaticResource TextSecondary}" />
+                        <Label Grid.Column="1"
+                               x:Name="LblProgress"
+                               Text="0 / 0 (0%)"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource Accent}" />
+                    </Grid>
+                    <ProgressBar x:Name="ProgressBarKeys"
+                                 Progress="0"
+                                 ProgressColor="{StaticResource Accent}"
+                                 HeightRequest="8" />
+                </VerticalStackLayout>
+
+                <!-- Toggle Numpad -->
+                <HorizontalStackLayout Grid.Column="1" Spacing="10" VerticalOptions="Center">
+                    <Label Text="Teclado Numérico"
+                           FontSize="13"
+                           VerticalOptions="Center"
+                           TextColor="{StaticResource TextPrimary}" />
+                    <Switch x:Name="SwitchNumpad"
+                            IsToggled="True"
+                            Toggled="OnNumpadToggled"
+                            OnColor="{StaticResource Accent}" />
+                </HorizontalStackLayout>
+
+                <!-- Reset Button -->
+                <Button Grid.Column="2"
+                        Text="Limpar Teste"
+                        Clicked="OnResetClicked"
+                        BackgroundColor="{StaticResource Accent}"
+                        TextColor="{StaticResource White}"
+                        CornerRadius="8"
+                        HeightRequest="40"
+                        VerticalOptions="Center" />
+            </Grid>
+        </Frame>
+
+        <!-- Keyboard Canvas Container -->
+        <Frame Grid.Row="2"
+               BackgroundColor="#0A0A14"
+               BorderColor="{StaticResource Border}"
+               CornerRadius="12"
+               Padding="10"
+               HasShadow="False"
+               VerticalOptions="FillAndExpand"
+               HorizontalOptions="FillAndExpand">
+            <controls:KeyboardCanvasView x:Name="KeyboardCanvas"
+                                         VerticalOptions="FillAndExpand"
+                                         HorizontalOptions="FillAndExpand"
+                                         HasNumpad="True" />
+        </Frame>
+
+        <!-- Footer Legend -->
+        <Frame Grid.Row="3"
+               BackgroundColor="{StaticResource BgCard}"
+               BorderColor="{StaticResource Border}"
+               CornerRadius="10"
+               Padding="12"
+               Margin="0,15,0,0"
+               HasShadow="False">
+            <FlexLayout Wrap="Wrap" JustifyContent="SpaceAround" AlignItems="Center">
+                <HorizontalStackLayout Spacing="8" Margin="5">
+                    <BoxView Color="#1C1C38" WidthRequest="16" HeightRequest="16" CornerRadius="4" />
+                    <Label Text="Não Testado" FontSize="11" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="8" Margin="5">
+                    <BoxView Color="#22C55E" WidthRequest="16" HeightRequest="16" CornerRadius="4" />
+                    <Label Text="Pressionado uma vez" FontSize="11" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="8" Margin="5">
+                    <Border Stroke="#3B82F6" StrokeThickness="2" BackgroundColor="#22C55E" WidthRequest="16" HeightRequest="16" StrokeShape="RoundRectangle 4" />
+                    <Label Text="Pressionado múltiplas vezes (Borda Azul)" FontSize="11" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="8" Margin="5">
+                    <BoxView Color="#3B82F6" WidthRequest="16" HeightRequest="16" CornerRadius="4" />
+                    <Label Text="Segurando tecla (Azul)" FontSize="11" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </FlexLayout>
+        </Frame>
+
+    </Grid>
+</ContentPage>

@@ -122,6 +122,7 @@ namespace TechTest.Helpers
             form.Font = FontBody;
             form.FormBorderStyle = FormBorderStyle.FixedSingle;
             form.MaximizeBox = false;
+            form.AutoScroll = true;
             typeof(Form).GetProperty("DoubleBuffered",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                 ?.SetValue(form, true);

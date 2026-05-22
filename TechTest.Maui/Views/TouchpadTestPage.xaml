@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:skia="clr-namespace:SkiaSharp.Views.Maui.Controls;assembly=SkiaSharp.Views.Maui.Controls"
+             x:Class="TechTest.Maui.Views.TouchpadTestPage"
+             BackgroundColor="{StaticResource BgPrimary}"
+             Shell.NavBarIsVisible="False">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="20">
+        
+        <!-- Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,15">
+            <VerticalStackLayout Grid.Column="0" Spacing="4">
+                <Label Text="Teste de Touchpad (Mouse)"
+                       FontSize="24"
+                       FontAttributes="Bold"
+                       TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Mova o cursor por toda a área e clique para testar botões e zonas mortas"
+                       FontSize="13"
+                       TextColor="{StaticResource TextSecondary}" />
+            </VerticalStackLayout>
+            
+            <Button Grid.Column="1"
+                    Text="Voltar"
+                    Clicked="OnBackClicked"
+                    BackgroundColor="{StaticResource BgCard}"
+                    TextColor="{StaticResource TextPrimary}"
+                    BorderColor="{StaticResource Border}"
+                    BorderWidth="1"
+                    CornerRadius="8"
+                    HeightRequest="40"
+                    VerticalOptions="Center" />
+        </Grid>
+
+        <!-- Stats Bar -->
+        <Frame Grid.Row="1"
+               BackgroundColor="{StaticResource BgCard}"
+               BorderColor="{StaticResource Border}"
+               CornerRadius="12"
+               Padding="15"
+               Margin="0,0,0,15"
+               HasShadow="False">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="20" VerticalOptions="Center">
+                
+                <!-- Area Coverage -->
+                <VerticalStackLayout Grid.Column="0" Spacing="5" VerticalOptions="Center">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0"
+                               Text="Cobertura da Área de Toque"
+                               FontSize="12"
+                               TextColor="{StaticResource TextSecondary}" />
+                        <Label Grid.Column="1"
+                               x:Name="LblCoverage"
+                               Text="0 / 48 (0%)"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource Accent}" />
+                    </Grid>
+                    <ProgressBar x:Name="ProgressBarCoverage"
+                                 Progress="0"
+                                 ProgressColor="{StaticResource Accent}"
+                                 HeightRequest="8" />
+                </VerticalStackLayout>
+
+                <!-- Click Counter -->
+                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" WidthRequest="120">
+                    <Label Text="Cliques Registrados" FontSize="11" TextColor="{StaticResource TextSecondary}" HorizontalTextAlignment="Center" />
+                    <Label x:Name="LblClicks" Text="0" FontSize="18" FontAttributes="Bold" TextColor="{StaticResource Success}" HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+
+                <!-- Reset Button -->
+                <Button Grid.Column="3"
+                        Text="Limpar Desenho"
+                        Clicked="OnResetClicked"
+                        BackgroundColor="{StaticResource Accent}"
+                        TextColor="{StaticResource White}"
+                        CornerRadius="8"
+                        HeightRequest="40"
+                        VerticalOptions="Center" />
+            </Grid>
+        </Frame>
+
+        <!-- Canvas Frame -->
+        <Frame Grid.Row="2"
+               BackgroundColor="#0A0A14"
+               BorderColor="{StaticResource Border}"
+               CornerRadius="12"
+               Padding="0"
+               HasShadow="False"
+               VerticalOptions="FillAndExpand"
+               HorizontalOptions="FillAndExpand">
+            
+            <skia:SKCanvasView x:Name="CanvasTouch"
+                               EnableTouchEvents="True"
+                               Touch="OnCanvasTouch"
+                               PaintSurface="OnPaintSurface"
+                               VerticalOptions="FillAndExpand"
+                               HorizontalOptions="FillAndExpand" />
+        </Frame>
+
+        <!-- Footer -->
+        <Frame Grid.Row="3"
+               BackgroundColor="{StaticResource BgCard}"
+               BorderColor="{StaticResource Border}"
+               CornerRadius="10"
+               Padding="12"
+               Margin="0,15,0,0"
+               HasShadow="False">
+            <Label Text="Desenhe cobrindo todos os retângulos do grid. Clique nos botões físico esquerdo/direito para registrar toques."
+                   FontSize="12"
+                   HorizontalTextAlignment="Center"
+                   TextColor="{StaticResource TextSecondary}" />
+        </Frame>
+
+    </Grid>
+</ContentPage>

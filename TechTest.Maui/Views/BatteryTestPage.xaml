@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:TechTest.Maui.Controls"
+             xmlns:helpers="clr-namespace:TechTest.Maui.Helpers"
+             x:Class="TechTest.Maui.Views.BatteryTestPage"
+             BackgroundColor="{StaticResource BgPrimary}"
+             Shell.NavBarIsVisible="False">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <helpers:InverseBoolConverter x:Key="InverseBoolConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="20">
+        
+        <!-- Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,15">
+            <VerticalStackLayout Grid.Column="0" Spacing="4">
+                <Label Text="Diagnóstico de Bateria"
+                       FontSize="24"
+                       FontAttributes="Bold"
+                       TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Monitore a saúde, ciclos e gere relatórios completos da bateria"
+                       FontSize="13"
+                       TextColor="{StaticResource TextSecondary}" />
+            </VerticalStackLayout>
+            
+            <Button Grid.Column="1"
+                    Text="Voltar"
+                    Clicked="OnBackClicked"
+                    BackgroundColor="{StaticResource BgCard}"
+                    TextColor="{StaticResource TextPrimary}"
+                    BorderColor="{StaticResource Border}"
+                    BorderWidth="1"
+                    CornerRadius="8"
+                    HeightRequest="40"
+                    VerticalOptions="Center" />
+        </Grid>
+
+        <!-- Main Panel -->
+        <ScrollView Grid.Row="1">
+            <Grid ColumnDefinitions="*,1.2*" ColumnSpacing="20" RowDefinitions="Auto,Auto" RowSpacing="20">
+                
+                <!-- Left: Battery Graphical representation -->
+                <Frame Grid.Column="0" Grid.Row="0"
+                       BackgroundColor="{StaticResource BgCard}"
+                       BorderColor="{StaticResource Border}"
+                       CornerRadius="14"
+                       Padding="20"
+                       HeightRequest="360"
+                       HasShadow="False">
+                    <Grid RowDefinitions="*,Auto">
+                        <controls:BatteryCanvasView Grid.Row="0" 
+                                                    ChargePercent="{Binding ChargePercent}"
+                                                    IsCharging="{Binding IsCharging}"
+                                                    VerticalOptions="FillAndExpand"
+                                                    HorizontalOptions="FillAndExpand" />
+                        <Button Grid.Row="1"
+                                Text="Atualizar Status"
+                                Command="{Binding RefreshCommand}"
+                                BackgroundColor="{StaticResource BgPrimary}"
+                                TextColor="{StaticResource TextPrimary}"
+                                BorderColor="{StaticResource Border}"
+                                BorderWidth="1"
+                                CornerRadius="8"
+                                Margin="0,15,0,0"
+                                HeightRequest="45" />
+                    </Grid>
+                </Frame>
+
+                <!-- Right: Battery Details -->
+                <Grid Grid.Column="1" Grid.Row="0" RowDefinitions="*,*" RowSpacing="15">
+                    
+                    <!-- Card: Current Status Details -->
+                    <Frame Grid.Row="0"
+                           BackgroundColor="{StaticResource BgCard}"
+                           BorderColor="{StaticResource Border}"
+                           CornerRadius="14"
+                           Padding="15"
+                           HasShadow="False">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="Status em Tempo Real"
+                                   FontSize="15"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource Accent}" />
+                            
+                            <BoxView Color="{StaticResource Border}" HeightRequest="1" Margin="0,2,0,5" />
+
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+                                <Label Grid.Row="0" Grid.Column="0" Text="Nível de Carga:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                                <Label Grid.Row="0" Grid.Column="1" Text="{Binding ChargePercent, StringFormat='{0}%'}" TextColor="{StaticResource TextPrimary}" FontAttributes="Bold" FontSize="13" />
+
+                                <Label Grid.Row="1" Grid.Column="0" Text="Fonte de Alimentação:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                                <Label Grid.Row="1" Grid.Column="1" Text="{Binding PowerSource}" TextColor="{StaticResource TextPrimary}" FontSize="13" />
+
+                                <Label Grid.Row="2" Grid.Column="0" Text="Estado da Bateria:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                                <Label Grid.Row="2" Grid.Column="1" Text="{Binding StatusText}" TextColor="{StaticResource TextPrimary}" FontSize="13" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Frame>
+
+                    <!-- Card: Health and Specification Details -->
+                    <Frame Grid.Row="1"
+                           BackgroundColor="{StaticResource BgCard}"
+                           BorderColor="{StaticResource Border}"
+                           CornerRadius="14"
+                           Padding="15"
+                           HasShadow="False">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="Saúde e Ciclos (Necessário Relatório)"
+                                   FontSize="15"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource Accent}" />
+                            
+                            <BoxView Color="{StaticResource Border}" HeightRequest="1" Margin="0,2,0,5" />
+
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
+                                <Label Grid.Row="0" Grid.Column="0" Text="Saúde Calculada:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                                <Label Grid.Row="0" Grid.Column="1" Text="{Binding Health}" TextColor="{StaticResource TextPrimary}" FontAttributes="Bold" FontSize="13" />
+
+                                <Label Grid.Row="1" Grid.Column="0" Text="Ciclos de Carga:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                                <Label Grid.Row="1" Grid.Column="1" Text="{Binding CycleCount}" TextColor="{StaticResource TextPrimary}" FontSize="13" />
+
+                                <Label Grid.Row="2" Grid.Column="0" Text="Capacidade Projeto:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                                <Label Grid.Row="2" Grid.Column="1" Text="{Binding DesignCapacity}" TextColor="{StaticResource TextPrimary}" FontSize="13" />
+
+                                <Label Grid.Row="3" Grid.Column="0" Text="Capacidade Atual:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                                <Label Grid.Row="3" Grid.Column="1" Text="{Binding FullChargeCapacity}" TextColor="{StaticResource TextPrimary}" FontSize="13" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Frame>
+                </Grid>
+
+                <!-- Full Width Bottom Card: Report Generation -->
+                <Frame Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="1"
+                       BackgroundColor="{StaticResource BgCard}"
+                       BorderColor="{StaticResource Border}"
+                       CornerRadius="14"
+                       Padding="20"
+                       HasShadow="False">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="20" VerticalOptions="Center">
+                        
+                        <!-- Info / Loading -->
+                        <VerticalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
+                            <Label Text="Relatório Detalhado do Sistema"
+                                   FontSize="16"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource TextPrimary}" />
+                            
+                            <Label Text="Gere um diagnóstico profundo incluindo histórico e desgaste usando ferramentas do sistema operacional."
+                                   FontSize="12"
+                                   TextColor="{StaticResource TextSecondary}"
+                                   x:Name="LblReportDesc" />
+
+                            <!-- Progress indicator -->
+                            <HorizontalStackLayout Spacing="10" IsVisible="{Binding IsGeneratingReport}" Margin="0,5,0,0">
+                                <ActivityIndicator IsRunning="True" Color="{StaticResource Accent}" HeightRequest="20" WidthRequest="20" />
+                                <Label Text="Gerando relatório (isso pode demorar alguns segundos, por favor aguarde)..."
+                                       TextColor="{StaticResource Accent}"
+                                       FontSize="12"
+                                       VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+
+                            <!-- Success / Open path indicator -->
+                            <Label Text="{Binding ReportFilePath, StringFormat='Salvo em: {0}'}"
+                                   TextColor="{StaticResource Success}"
+                                   FontSize="11"
+                                   IsVisible="{Binding IsReportReady}"
+                                   LineBreakMode="HeadTruncation"
+                                   Margin="0,5,0,0" />
+                        </VerticalStackLayout>
+
+                        <!-- Action Button -->
+                        <HorizontalStackLayout Grid.Column="1" Spacing="10" VerticalOptions="Center">
+                            <Button Text="Gerar Relatório"
+                                    Command="{Binding GenerateReportCommand}"
+                                    IsVisible="{Binding IsGeneratingReport, Converter={StaticResource InverseBoolConverter}}"
+                                    BackgroundColor="{StaticResource Accent}"
+                                    TextColor="{StaticResource White}"
+                                    CornerRadius="8"
+                                    HeightRequest="45"
+                                    WidthRequest="150" />
+                            
+                            <Button Text="Abrir Relatório"
+                                    Clicked="OnOpenReportClicked"
+                                    IsVisible="{Binding IsReportReady}"
+                                    BackgroundColor="{StaticResource Success}"
+                                    TextColor="{StaticResource White}"
+                                    CornerRadius="8"
+                                    HeightRequest="45"
+                                    WidthRequest="150" />
+                        </HorizontalStackLayout>
+                    </Grid>
+                </Frame>
+            </Grid>
+        </ScrollView>
+
+        <!-- Bottom legend -->
+        <Frame Grid.Row="2"
+               BackgroundColor="{StaticResource BgCard}"
+               BorderColor="{StaticResource Border}"
+               CornerRadius="10"
+               Padding="12"
+               Margin="0,15,0,0"
+               HasShadow="False">
+            <Label Text="Dica: Deixe seu notebook carregar completamente até concluir todos os testes de bateria."
+                   FontSize="12"
+                   HorizontalTextAlignment="Center"
+                   TextColor="{StaticResource TextSecondary}" />
+        </Frame>
+
+    </Grid>
+</ContentPage>

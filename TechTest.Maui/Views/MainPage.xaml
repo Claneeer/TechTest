@@ -1,0 +1,418 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:TechTest.Maui.Controls"
+             x:Class="TechTest.Maui.Views.MainPage"
+             BackgroundColor="{StaticResource BgPrimary}"
+             Shell.NavBarIsVisible="False">
+
+    <Grid RowDefinitions="*,Auto">
+        <!-- Main scrollable content -->
+        <ScrollView Grid.Row="0">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,*"
+                  Padding="0">
+
+                <!-- Gradient-like header background -->
+                <BoxView Grid.Row="0"
+                         Color="{StaticResource BgDark}"
+                         HeightRequest="120" />
+
+                <!-- Title overlay on header -->
+                <VerticalStackLayout Grid.Row="0"
+                                     Padding="0,24,0,0"
+                                     Spacing="4">
+                    <Label Text="TechTest Notebook"
+                           FontSize="28"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{StaticResource TextPrimary}" />
+
+                    <Label Text="Diagnóstico de Hardware para Notebooks"
+                           FontSize="14"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{StaticResource TextSecondary}" />
+
+                    <!-- Accent line -->
+                    <BoxView Color="{StaticResource Accent}"
+                             WidthRequest="120"
+                             HeightRequest="3"
+                             HorizontalOptions="Center"
+                             Margin="0,10,0,0" />
+                </VerticalStackLayout>
+
+                <!-- Cards area -->
+                <FlexLayout Grid.Row="1"
+                            Wrap="Wrap"
+                            JustifyContent="Center"
+                            AlignContent="Start"
+                            Padding="10,20,10,20">
+
+                    <!-- Card: Microfone -->
+                    <Frame BackgroundColor="{StaticResource BgCard}"
+                           BorderColor="{StaticResource Border}"
+                           CornerRadius="14"
+                           WidthRequest="220"
+                           HeightRequest="175"
+                           Margin="10"
+                           Padding="0"
+                           HasShadow="False"
+                           x:Name="CardMicrofone">
+                        <Frame.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnMicrofoneCardTapped" />
+                            <PointerGestureRecognizer PointerEntered="OnCardPointerEntered"
+                                                      PointerExited="OnCardPointerExited" />
+                        </Frame.GestureRecognizers>
+                        <Grid RowDefinitions="Auto,Auto,Auto"
+                              Padding="15"
+                              RowSpacing="6"
+                              VerticalOptions="Center">
+                            <Label Grid.Row="0"
+                                   Text="🎤"
+                                   FontSize="40"
+                                   HorizontalTextAlignment="Center" />
+                            <Label Grid.Row="1"
+                                   Text="Microfone"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextPrimary}" />
+                            <Label Grid.Row="2"
+                                   Text="Teste o microfone integrado"
+                                   FontSize="11"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextSecondary}" />
+                        </Grid>
+                    </Frame>
+
+                    <!-- Card: Alto-falantes -->
+                    <Frame BackgroundColor="{StaticResource BgCard}"
+                           BorderColor="{StaticResource Border}"
+                           CornerRadius="14"
+                           WidthRequest="220"
+                           HeightRequest="175"
+                           Margin="10"
+                           Padding="0"
+                           HasShadow="False"
+                           x:Name="CardAudio">
+                        <Frame.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnAudioCardTapped" />
+                            <PointerGestureRecognizer PointerEntered="OnCardPointerEntered"
+                                                      PointerExited="OnCardPointerExited" />
+                        </Frame.GestureRecognizers>
+                        <Grid RowDefinitions="Auto,Auto,Auto"
+                              Padding="15"
+                              RowSpacing="6"
+                              VerticalOptions="Center">
+                            <Label Grid.Row="0"
+                                   Text="🔊"
+                                   FontSize="40"
+                                   HorizontalTextAlignment="Center" />
+                            <Label Grid.Row="1"
+                                   Text="Alto-falantes"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextPrimary}" />
+                            <Label Grid.Row="2"
+                                   Text="Teste áudio esquerdo e direito"
+                                   FontSize="11"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextSecondary}" />
+                        </Grid>
+                    </Frame>
+
+                    <!-- Card: Webcam -->
+                    <Frame BackgroundColor="{StaticResource BgCard}"
+                           BorderColor="{StaticResource Border}"
+                           CornerRadius="14"
+                           WidthRequest="220"
+                           HeightRequest="175"
+                           Margin="10"
+                           Padding="0"
+                           HasShadow="False"
+                           x:Name="CardWebcam">
+                        <Frame.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnWebcamCardTapped" />
+                            <PointerGestureRecognizer PointerEntered="OnCardPointerEntered"
+                                                      PointerExited="OnCardPointerExited" />
+                        </Frame.GestureRecognizers>
+                        <Grid RowDefinitions="Auto,Auto,Auto"
+                              Padding="15"
+                              RowSpacing="6"
+                              VerticalOptions="Center">
+                            <Label Grid.Row="0"
+                                   Text="📷"
+                                   FontSize="40"
+                                   HorizontalTextAlignment="Center" />
+                            <Label Grid.Row="1"
+                                   Text="Webcam"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextPrimary}" />
+                            <Label Grid.Row="2"
+                                   Text="Teste a câmera integrada"
+                                   FontSize="11"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextSecondary}" />
+                        </Grid>
+                    </Frame>
+
+                    <!-- Card: Pixel Morto -->
+                    <Frame BackgroundColor="{StaticResource BgCard}"
+                           BorderColor="{StaticResource Border}"
+                           CornerRadius="14"
+                           WidthRequest="220"
+                           HeightRequest="175"
+                           Margin="10"
+                           Padding="0"
+                           HasShadow="False"
+                           x:Name="CardDeadPixel">
+                        <Frame.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnDeadPixelCardTapped" />
+                            <PointerGestureRecognizer PointerEntered="OnCardPointerEntered"
+                                                      PointerExited="OnCardPointerExited" />
+                        </Frame.GestureRecognizers>
+                        <Grid RowDefinitions="Auto,Auto,Auto"
+                              Padding="15"
+                              RowSpacing="6"
+                              VerticalOptions="Center">
+                            <Label Grid.Row="0"
+                                   Text="🖥"
+                                   FontSize="40"
+                                   HorizontalTextAlignment="Center" />
+                            <Label Grid.Row="1"
+                                   Text="Pixel Morto"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextPrimary}" />
+                            <Label Grid.Row="2"
+                                   Text="Verifique pixels defeituosos"
+                                   FontSize="11"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextSecondary}" />
+                        </Grid>
+                    </Frame>
+
+                    <!-- Card: Teclado -->
+                    <Frame BackgroundColor="{StaticResource BgCard}"
+                           BorderColor="{StaticResource Border}"
+                           CornerRadius="14"
+                           WidthRequest="220"
+                           HeightRequest="175"
+                           Margin="10"
+                           Padding="0"
+                           HasShadow="False"
+                           x:Name="CardTeclado">
+                        <Frame.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnKeyboardCardTapped" />
+                            <PointerGestureRecognizer PointerEntered="OnCardPointerEntered"
+                                                      PointerExited="OnCardPointerExited" />
+                        </Frame.GestureRecognizers>
+                        <Grid RowDefinitions="Auto,Auto,Auto"
+                              Padding="15"
+                              RowSpacing="6"
+                              VerticalOptions="Center">
+                            <Label Grid.Row="0"
+                                   Text="⌨"
+                                   FontSize="40"
+                                   HorizontalTextAlignment="Center" />
+                            <Label Grid.Row="1"
+                                   Text="Teclado"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextPrimary}" />
+                            <Label Grid.Row="2"
+                                   Text="Teste todas as teclas"
+                                   FontSize="11"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextSecondary}" />
+                        </Grid>
+                    </Frame>
+
+                    <!-- Card: Touchpad -->
+                    <Frame BackgroundColor="{StaticResource BgCard}"
+                           BorderColor="{StaticResource Border}"
+                           CornerRadius="14"
+                           WidthRequest="220"
+                           HeightRequest="175"
+                           Margin="10"
+                           Padding="0"
+                           HasShadow="False"
+                           x:Name="CardTouchpad">
+                        <Frame.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnTouchpadCardTapped" />
+                            <PointerGestureRecognizer PointerEntered="OnCardPointerEntered"
+                                                      PointerExited="OnCardPointerExited" />
+                        </Frame.GestureRecognizers>
+                        <Grid RowDefinitions="Auto,Auto,Auto"
+                              Padding="15"
+                              RowSpacing="6"
+                              VerticalOptions="Center">
+                            <Label Grid.Row="0"
+                                   Text="🖱"
+                                   FontSize="40"
+                                   HorizontalTextAlignment="Center" />
+                            <Label Grid.Row="1"
+                                   Text="Touchpad"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextPrimary}" />
+                            <Label Grid.Row="2"
+                                   Text="Teste movimento e cliques"
+                                   FontSize="11"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextSecondary}" />
+                        </Grid>
+                    </Frame>
+
+                    <!-- Card: Bateria -->
+                    <Frame BackgroundColor="{StaticResource BgCard}"
+                           BorderColor="{StaticResource Border}"
+                           CornerRadius="14"
+                           WidthRequest="220"
+                           HeightRequest="175"
+                           Margin="10"
+                           Padding="0"
+                           HasShadow="False"
+                           x:Name="CardBateria">
+                        <Frame.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnBatteryCardTapped" />
+                            <PointerGestureRecognizer PointerEntered="OnCardPointerEntered"
+                                                      PointerExited="OnCardPointerExited" />
+                        </Frame.GestureRecognizers>
+                        <Grid RowDefinitions="Auto,Auto,Auto"
+                              Padding="15"
+                              RowSpacing="6"
+                              VerticalOptions="Center">
+                            <Label Grid.Row="0"
+                                   Text="🔋"
+                                   FontSize="40"
+                                   HorizontalTextAlignment="Center" />
+                            <Label Grid.Row="1"
+                                   Text="Bateria"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextPrimary}" />
+                            <Label Grid.Row="2"
+                                   Text="Verifique saúde da bateria"
+                                   FontSize="11"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextSecondary}" />
+                        </Grid>
+                    </Frame>
+
+                    <!-- Card: Especificações -->
+                    <Frame BackgroundColor="{StaticResource BgCard}"
+                           BorderColor="{StaticResource Border}"
+                           CornerRadius="14"
+                           WidthRequest="220"
+                           HeightRequest="175"
+                           Margin="10"
+                           Padding="0"
+                           HasShadow="False"
+                           x:Name="CardSpecs">
+                        <Frame.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnSpecsCardTapped" />
+                            <PointerGestureRecognizer PointerEntered="OnCardPointerEntered"
+                                                      PointerExited="OnCardPointerExited" />
+                        </Frame.GestureRecognizers>
+                        <Grid RowDefinitions="Auto,Auto,Auto"
+                              Padding="15"
+                              RowSpacing="6"
+                              VerticalOptions="Center">
+                            <Label Grid.Row="0"
+                                   Text="💻"
+                                   FontSize="40"
+                                   HorizontalTextAlignment="Center" />
+                            <Label Grid.Row="1"
+                                   Text="Especificações"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextPrimary}" />
+                            <Label Grid.Row="2"
+                                   Text="Hardware e Service Tag (SA/ST)"
+                                   FontSize="11"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextSecondary}" />
+                        </Grid>
+                    </Frame>
+
+                </FlexLayout>
+            </Grid>
+        </ScrollView>
+
+        <!-- Bottom bar -->
+        <Grid Grid.Row="1"
+              BackgroundColor="{StaticResource BgDark}"
+              HeightRequest="50"
+              Padding="15,0"
+              ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+
+            <!-- System info label -->
+            <Label x:Name="LblSysInfo"
+                   Grid.Column="0"
+                   Text="💻 Carregando informações do sistema..."
+                   FontSize="11"
+                   TextColor="{StaticResource TextMuted}"
+                   VerticalTextAlignment="Center"
+                   LineBreakMode="TailTruncation" />
+
+            <!-- FurMark button (Windows only) -->
+            <Button x:Name="BtnFurMark"
+                    Grid.Column="1"
+                    Text="🔥 FurMark Stress"
+                    BackgroundColor="{StaticResource BgCard}"
+                    TextColor="{StaticResource TextPrimary}"
+                    FontSize="11"
+                    BorderColor="{StaticResource Border}"
+                    BorderWidth="1"
+                    CornerRadius="4"
+                    HeightRequest="34"
+                    Padding="12,0"
+                    Margin="5,0"
+                    Clicked="OnFurMarkClicked">
+                <Button.IsVisible>
+                    <OnPlatform x:TypeArguments="x:Boolean">
+                        <On Platform="WinUI" Value="True" />
+                        <On Platform="MacCatalyst" Value="False" />
+                    </OnPlatform>
+                </Button.IsVisible>
+            </Button>
+
+            <!-- Scale label -->
+            <Label Grid.Column="2"
+                   Text="🖥 Ajustar Tela:"
+                   FontSize="11"
+                   TextColor="{StaticResource TextSecondary}"
+                   VerticalTextAlignment="Center"
+                   Margin="10,0,5,0" />
+
+            <!-- Scale picker -->
+            <Picker x:Name="PickerScale"
+                    Grid.Column="3"
+                    WidthRequest="130"
+                    HeightRequest="34"
+                    FontSize="11"
+                    TextColor="{StaticResource TextPrimary}"
+                    BackgroundColor="{StaticResource BgInput}"
+                    SelectedIndexChanged="OnScalePickerChanged"
+                    VerticalOptions="Center">
+                <Picker.ItemsSource>
+                    <x:Array Type="{x:Type x:String}">
+                        <x:String>Auto DPI</x:String>
+                        <x:String>75%</x:String>
+                        <x:String>100%</x:String>
+                        <x:String>125%</x:String>
+                        <x:String>150%</x:String>
+                    </x:Array>
+                </Picker.ItemsSource>
+            </Picker>
+        </Grid>
+    </Grid>
+</ContentPage>

@@ -6,6 +6,15 @@ namespace TechTest.Helpers
 {
     public enum AudioChannel { Left, Right, Both }
 
+    public enum SoundType
+    {
+        Sine,
+        Square,
+        WhiteNoise,
+        Sweep,
+        Beep
+    }
+
     public static class AudioHelper
     {
         public static float CalculateRMS(byte[] buffer, int bytesRecorded)
@@ -33,16 +42,72 @@ namespace TechTest.Helpers
             return max;
         }
 
-        public static ISampleProvider CreateTone(float frequency, AudioChannel channel)
+        /// <summary>
+        /// Creates a tone with the specified frequency, channel, sound type, and volume gain.
+        /// </summary>
+        /// <param name="frequency">Frequency in Hz (50 to 15000)</param>
+        /// <param name="channel">Left, Right, or Both speaker channels</param>
+        /// <param name="soundType">Type of waveform to generate</param>
+        /// <param name="gain">Volume gain (0.0 to 2.0, where 1.0 is 100% and 2.0 is 200%)</param>
+        /// <returns>A stereo ISampleProvider ready for playback</returns>
+        public static ISampleProvider CreateTone(float frequency, AudioChannel channel,
+            SoundType soundType = SoundType.Sine, float gain = 0.5f)
         {
-            var sine = new SignalGenerator(44100, 1)
-            {
-                Frequency = frequency,
-                Type = SignalGeneratorType.Sin,
-                Gain = 0.5
-            };
+            ISampleProvider source;
 
-            var stereo = new MonoToStereoSampleProvider(sine);
+            switch (soundType)
+            {
+                case SoundType.Square:
+                    source = new SignalGenerator(44100, 1)
+                    {
+                        Frequency = frequency,
+                        Type = SignalGeneratorType.Square,
+                        Gain = gain
+                    };
+                    break;
+
+                case SoundType.WhiteNoise:
+                    source = new SignalGenerator(44100, 1)
+                    {
+                        Frequency = frequency,
+                        Type = SignalGeneratorType.White,
+                        Gain = gain
+                    };
+                    break;
+
+                case SoundType.Sweep:
+                    source = new SignalGenerator(44100, 1)
+                    {
+                        Frequency = 100,
+                        FrequencyEnd = 10000,
+                        Type = SignalGeneratorType.Sweep,
+                        SweepLengthSecs = 5,
+                        Gain = gain
+                    };
+                    break;
+
+                case SoundType.Beep:
+                    // Beep is a sine wave that will be pulsed on/off by the caller
+                    source = new SignalGenerator(44100, 1)
+                    {
+                        Frequency = frequency,
+                        Type = SignalGeneratorType.Sin,
+                        Gain = gain
+                    };
+                    break;
+
+                case SoundType.Sine:
+                default:
+                    source = new SignalGenerator(44100, 1)
+                    {
+                        Frequency = frequency,
+                        Type = SignalGeneratorType.Sin,
+                        Gain = gain
+                    };
+                    break;
+            }
+
+            var stereo = new MonoToStereoSampleProvider(source);
             switch (channel)
             {
                 case AudioChannel.Left:
@@ -59,6 +124,14 @@ namespace TechTest.Helpers
                     break;
             }
             return stereo;
+        }
+
+        /// <summary>
+        /// Legacy overload — creates a Sine tone at default gain for backward compatibility.
+        /// </summary>
+        public static ISampleProvider CreateTone(float frequency, AudioChannel channel)
+        {
+            return CreateTone(frequency, channel, SoundType.Sine, 0.5f);
         }
 
         public static float[] ExtractWaveformSamples(byte[] buffer, int bytesRecorded, int maxSamples)

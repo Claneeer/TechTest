@@ -13,7 +13,7 @@ namespace TechTest.Forms
 {
     public class BatteryTestForm : Form
     {
-        private Panel _batteryPanel;
+        private Panel _batteryPanel, _infoPanel;
         private Label _lblChargePercent, _lblStatus, _lblTimeLeft;
         private Label _lblDesignCap, _lblFullCap, _lblHealth, _lblCycles;
         private Label _lblManufacturer, _lblPlugged;
@@ -33,6 +33,12 @@ namespace TechTest.Forms
         public BatteryTestForm()
         {
             Theme.StyleForm(this, "🔋 Teste de Bateria", 750, 560);
+            
+            // Allow manual resizing and maximizing
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.MaximizeBox = true;
+            this.MinimumSize = this.Size;
+
             BuildUI();
             UpdateBatteryInfo();
             LoadBatteryReport();
@@ -55,42 +61,50 @@ namespace TechTest.Forms
             // Battery visual panel
             _batteryPanel = new Panel
             {
-                Location = new Point(Theme.S(30), Theme.S(90)),
-                Size = new Size(Theme.S(280), Theme.S(340)),
                 BackColor = Color.Transparent
             };
             typeof(Panel).GetProperty("DoubleBuffered",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                 ?.SetValue(_batteryPanel, true);
             _batteryPanel.Paint += BatteryPanel_Paint;
+            _batteryPanel.Resize += (s, e) => _batteryPanel.Invalidate();
             Controls.Add(_batteryPanel);
 
-            // Info section
-            int infoX = Theme.S(340), infoY = Theme.S(95);
+            // Info panel
+            _infoPanel = new Panel
+            {
+                BackColor = Color.Transparent,
+                AutoScroll = true
+            };
+            Controls.Add(_infoPanel);
 
-            Controls.Add(Theme.CreateLabel("Status", infoX, infoY, Theme.FontButton));
-            infoY += Theme.S(30);
+            // Build Info controls inside _infoPanel using unscaled relative coordinates
+            int infoX = 0;
+            int infoY = 5;
 
-            _lblPlugged = CreateInfoRow("Fonte de energia:", "—", infoX, ref infoY);
-            _lblStatus = CreateInfoRow("Status:", "—", infoX, ref infoY);
-            _lblChargePercent = CreateInfoRow("Nível de carga:", "—", infoX, ref infoY);
-            _lblTimeLeft = CreateInfoRow("Tempo restante:", "—", infoX, ref infoY);
+            _infoPanel.Controls.Add(Theme.CreateLabel("Status", infoX, infoY, Theme.FontButton));
+            infoY += 30;
 
-            infoY += Theme.S(15);
-            Controls.Add(Theme.CreateLabel("Saúde da Bateria (powercfg)", infoX, infoY, Theme.FontButton));
-            infoY += Theme.S(30);
+            _lblPlugged = CreateInfoRow(_infoPanel, "Fonte de energia:", "—", infoX, ref infoY);
+            _lblStatus = CreateInfoRow(_infoPanel, "Status:", "—", infoX, ref infoY);
+            _lblChargePercent = CreateInfoRow(_infoPanel, "Nível de carga:", "—", infoX, ref infoY);
+            _lblTimeLeft = CreateInfoRow(_infoPanel, "Tempo restante:", "—", infoX, ref infoY);
 
-            _lblDesignCap = CreateInfoRow("Capacidade projetada:", "—", infoX, ref infoY);
-            _lblFullCap = CreateInfoRow("Capacidade atual:", "—", infoX, ref infoY);
-            _lblHealth = CreateInfoRow("Saúde:", "—", infoX, ref infoY);
-            _lblCycles = CreateInfoRow("Ciclos:", "—", infoX, ref infoY);
-            _lblManufacturer = CreateInfoRow("Fabricante:", "—", infoX, ref infoY);
+            infoY += 15;
+            _infoPanel.Controls.Add(Theme.CreateLabel("Saúde da Bateria (powercfg)", infoX, infoY, Theme.FontButton));
+            infoY += 30;
 
-            infoY += Theme.S(10);
+            _lblDesignCap = CreateInfoRow(_infoPanel, "Capacidade projetada:", "—", infoX, ref infoY);
+            _lblFullCap = CreateInfoRow(_infoPanel, "Capacidade atual:", "—", infoX, ref infoY);
+            _lblHealth = CreateInfoRow(_infoPanel, "Saúde:", "—", infoX, ref infoY);
+            _lblCycles = CreateInfoRow(_infoPanel, "Ciclos:", "—", infoX, ref infoY);
+            _lblManufacturer = CreateInfoRow(_infoPanel, "Fabricante:", "—", infoX, ref infoY);
+
+            infoY += 10;
             _lblReportStatus = Theme.CreateLabel("⏳ Gerando relatório...", infoX, infoY, Theme.FontSmall, Theme.TextMuted);
-            Controls.Add(_lblReportStatus);
+            _infoPanel.Controls.Add(_lblReportStatus);
 
-            _btnReport = Theme.CreateSecondaryButton("📄 Abrir Relatório", infoX + Theme.S(250), infoY - Theme.S(5), 160, 32);
+            _btnReport = Theme.CreateSecondaryButton("📄 Abrir Relatório", infoX + 220, infoY - 5, 150, 32);
             _btnReport.Enabled = false;
             _btnReport.Click += (s, e) =>
             {
@@ -99,16 +113,45 @@ namespace TechTest.Forms
                     Process.Start(new ProcessStartInfo(_reportPath) { UseShellExecute = true });
                 }
             };
-            Controls.Add(_btnReport);
+            _infoPanel.Controls.Add(_btnReport);
+
+            // Execute initial layout placement
+            OnResize(EventArgs.Empty);
         }
 
-        private Label CreateInfoRow(string label, string value, int x, ref int y)
+        private Label CreateInfoRow(Panel parent, string label, string value, int x, ref int y)
         {
-            Controls.Add(Theme.CreateLabel(label, x, y, Theme.FontSmall, Theme.TextSecondary));
-            var lblValue = Theme.CreateLabel(value, x + Theme.S(180), y, Theme.FontBody, Theme.TextPrimary);
-            Controls.Add(lblValue);
-            y += Theme.S(28);
+            parent.Controls.Add(Theme.CreateLabel(label, x, y, Theme.FontSmall, Theme.TextSecondary));
+            var lblValue = Theme.CreateLabel(value, x + 160, y, Theme.FontBody, Theme.TextPrimary);
+            lblValue.MaximumSize = new Size(Theme.S(250), 0);
+            parent.Controls.Add(lblValue);
+            y += 28;
             return lblValue;
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            if (_batteryPanel == null || _infoPanel == null) return;
+
+            int padX = Theme.S(30);
+            int padY = Theme.S(90);
+
+            int availW = this.ClientSize.Width - padX * 3;
+            int availH = this.ClientSize.Height - padY - Theme.S(30);
+
+            if (availW < Theme.S(200)) availW = Theme.S(200);
+            if (availH < Theme.S(200)) availH = Theme.S(200);
+
+            // Allocate 40% of horizontal space to the visual battery panel, and 60% to the details panel
+            int batW = (int)(availW * 0.40f);
+            int infoW = availW - batW;
+
+            _batteryPanel.Location = new Point(padX, padY);
+            _batteryPanel.Size = new Size(batW, availH);
+
+            _infoPanel.Location = new Point(padX * 2 + batW, padY);
+            _infoPanel.Size = new Size(infoW, availH);
         }
 
         private void UpdateBatteryInfo()
@@ -172,8 +215,8 @@ namespace TechTest.Forms
                 // Update powercfg data if loaded
                 if (_reportLoaded)
                 {
-                    _lblDesignCap.Text = _reportDesignCap;
-                    _lblFullCap.Text = _reportFullCap;
+                    _lblDesignCap.Text = $"{_reportDesignCap} (100%)";
+                    _lblFullCap.Text = $"{_reportFullCap} ({_reportHealth})";
                     _lblHealth.Text = _reportHealth;
                     _lblCycles.Text = _reportCycles;
                     _lblManufacturer.Text = _reportManufacturer;
@@ -209,7 +252,7 @@ namespace TechTest.Forms
                     };
                     using (var proc = Process.Start(psi))
                     {
-                        proc?.WaitForExit(10000);
+                        proc?.WaitForExit(); // Aguarda sem timeout até completar
                     }
                 });
 
@@ -308,36 +351,65 @@ namespace TechTest.Forms
             var ps = SystemInformation.PowerStatus;
             int pct = Math.Max(0, Math.Min(100, (int)(ps.BatteryLifePercent * 100)));
 
-            // Battery outline
-            int batW = 140, batH = 200;
-            int batX = (rect.Width - batW) / 2;
-            int batY = (rect.Height - batH) / 2 - 10;
+            // Calculate responsive bounds keeping a nice aspect ratio (approx 0.65)
+            float padX = rect.Width * 0.15f;
+            float padY = rect.Height * 0.15f;
+            float availW = rect.Width - 2 * padX;
+            float availH = rect.Height - 2 * padY;
 
-            // Battery terminal (top nub)
-            var nubRect = new Rectangle(batX + batW / 2 - 20, batY - 12, 40, 16);
-            using (var path = Theme.RoundedRect(nubRect, 5))
+            float aspect = 0.65f;
+            float batW_f, batH_f;
+            if (availW / availH > aspect)
+            {
+                batH_f = availH;
+                batW_f = batH_f * aspect;
+            }
+            else
+            {
+                batW_f = availW;
+                batH_f = batW_f / aspect;
+            }
+
+            int batW = (int)batW_f;
+            int batH = (int)batH_f;
+
+            // Center the battery body horizontally and vertically
+            int batX = (rect.Width - batW) / 2;
+            int batY = (rect.Height - batH) / 2 + (int)(batH * 0.02f);
+
+            // Battery terminal (top nub) - scaled proportionally
+            int nubW = (int)(batW * 0.3f);
+            int nubH = (int)(batH * 0.08f);
+            var nubRect = new Rectangle(batX + (batW - nubW) / 2, batY - nubH, nubW, nubH);
+            int nubR = Math.Max(2, (int)(nubW * 0.15f));
+            using (var path = Theme.RoundedRect(nubRect, nubR))
             using (var brush = new SolidBrush(Theme.Border))
                 g.FillPath(brush, path);
 
-            // Battery body
+            // Battery body - scaled
             var bodyRect = new Rectangle(batX, batY, batW, batH);
-            using (var path = Theme.RoundedRect(bodyRect, 12))
+            int bodyR = Math.Max(4, (int)(batW * 0.08f));
+            float penWidth = Math.Max(1.5f, batW * 0.025f);
+            using (var path = Theme.RoundedRect(bodyRect, bodyR))
             {
                 using (var brush = new SolidBrush(Color.FromArgb(25, 25, 50)))
                     g.FillPath(brush, path);
-                using (var pen = new Pen(Theme.Border, 3f))
+                using (var pen = new Pen(Theme.Border, penWidth))
                     g.DrawPath(pen, path);
             }
 
-            // Fill level
-            int fillH = (int)(batH * pct / 100.0) - 8;
+            // Fill level - scaled inside the battery borders
+            int fillPadding = Math.Max(2, (int)(batW * 0.04f));
+            int maxFillH = batH - 2 * fillPadding;
+            int fillH = (int)(maxFillH * pct / 100.0);
             if (fillH > 0)
             {
-                int fillY = batY + batH - fillH - 4;
-                var fillRect = new Rectangle(batX + 4, fillY, batW - 8, fillH);
+                int fillY = batY + batH - fillPadding - fillH;
+                var fillRect = new Rectangle(batX + fillPadding, fillY, batW - 2 * fillPadding, fillH);
                 Color fillColor = pct > 50 ? Theme.Success : pct > 20 ? Theme.Warning : Theme.Error;
+                int fillR = Math.Max(2, (int)((batW - 2 * fillPadding) * 0.08f));
 
-                using (var path = Theme.RoundedRect(fillRect, 8))
+                using (var path = Theme.RoundedRect(fillRect, fillR))
                 using (var brush = new LinearGradientBrush(fillRect,
                     Color.FromArgb(200, fillColor), fillColor, 90f))
                 {
@@ -345,8 +417,9 @@ namespace TechTest.Forms
                 }
             }
 
-            // Percentage text in center
-            using (var font = new Font("Segoe UI", 28, FontStyle.Bold))
+            // Percentage text in center — dynamically scaled font
+            float fontSize = Math.Max(8f, batW * 0.20f);
+            using (var font = new Font("Segoe UI", fontSize, FontStyle.Bold))
             {
                 string pctText = $"{pct}%";
                 var sz = g.MeasureString(pctText, font);
@@ -355,12 +428,17 @@ namespace TechTest.Forms
                 g.DrawString(pctText, font, new SolidBrush(Theme.TextPrimary), tx, ty);
             }
 
-            // Charging icon
+            // Charging icon — dynamically scaled below the battery
             if (ps.PowerLineStatus == PowerLineStatus.Online)
             {
-                using (var font = new Font("Segoe UI Emoji", 18))
+                float boltFontSize = Math.Max(10f, batW * 0.16f);
+                using (var boltFont = new Font("Segoe UI Emoji", boltFontSize))
                 {
-                    g.DrawString("⚡", font, Brushes.Yellow, batX + batW / 2 - 14, batY + batH + 8);
+                    string boltText = "⚡";
+                    var boltSz = g.MeasureString(boltText, boltFont);
+                    float bx = batX + (batW - boltSz.Width) / 2;
+                    float by = batY + batH + Math.Max(2f, batH * 0.03f);
+                    g.DrawString(boltText, boltFont, Brushes.Yellow, bx, by);
                 }
             }
         }

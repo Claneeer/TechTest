@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:views="clr-namespace:TechTest.Maui.Views"
+       x:Class="TechTest.Maui.AppShell"
+       FlyoutBehavior="Disabled"
+       Shell.BackgroundColor="#0A0A14"
+       Shell.ForegroundColor="#F0F0FF"
+       Shell.TitleColor="#F0F0FF"
+       Shell.TabBarBackgroundColor="#121224"
+       Shell.TabBarTitleColor="#9494B8"
+       Shell.TabBarForegroundColor="#F0F0FF"
+       Shell.TabBarUnselectedColor="#64648C"
+       Shell.TabBarDisabledColor="#64648C">
+
+    <Shell.Resources>
+        <ResourceDictionary>
+            <Style x:Key="ShellTabBarStyle" TargetType="TabBar">
+                <Setter Property="Shell.TabBarBackgroundColor" Value="#121224" />
+            </Style>
+        </ResourceDictionary>
+    </Shell.Resources>
+
+    <TabBar>
+        <ShellContent
+            Title="Início"
+            Icon="home"
+            ContentTemplate="{DataTemplate views:MainPage}"
+            Route="MainPage" />
+
+        <ShellContent
+            Title="Microfone"
+            Icon="mic"
+            ContentTemplate="{DataTemplate views:MicrophoneTestPage}"
+            Route="MicrophoneTestPage" />
+
+        <ShellContent
+            Title="Áudio"
+            Icon="speaker"
+            ContentTemplate="{DataTemplate views:AudioTestPage}"
+            Route="AudioTestPage" />
+
+        <ShellContent
+            Title="Teclado"
+            Icon="keyboard"
+            ContentTemplate="{DataTemplate views:KeyboardTestPage}"
+            Route="KeyboardTestPage" />
+
+        <ShellContent
+            Title="Bateria"
+            Icon="battery"
+            ContentTemplate="{DataTemplate views:BatteryTestPage}"
+            Route="BatteryTestPage" />
+    </TabBar>
+
+</Shell>

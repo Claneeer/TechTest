@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TechTest.Maui.Views.DeadPixelTestPage"
+             BackgroundColor="{StaticResource BgPrimary}"
+             Shell.NavBarIsVisible="False">
+
+    <Grid>
+        <!-- Instructions Panel (Normal View) -->
+        <Grid x:Name="LayoutNormal" RowDefinitions="Auto,*,Auto" Padding="20">
+            <!-- Header -->
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,15">
+                <VerticalStackLayout Grid.Column="0" Spacing="4">
+                    <Label Text="Teste de Dead Pixel"
+                           FontSize="24"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource TextPrimary}" />
+                    <Label Text="Identifique pixels travados, queimados ou falhas na tela de LCD"
+                           FontSize="13"
+                           TextColor="{StaticResource TextSecondary}" />
+                </VerticalStackLayout>
+                
+                <Button Grid.Column="1"
+                        Text="Voltar"
+                        Clicked="OnBackClicked"
+                        BackgroundColor="{StaticResource BgCard}"
+                        TextColor="{StaticResource TextPrimary}"
+                        BorderColor="{StaticResource Border}"
+                        BorderWidth="1"
+                        CornerRadius="8"
+                        HeightRequest="40"
+                        VerticalOptions="Center" />
+            </Grid>
+
+            <!-- Workspace Details -->
+            <Frame Grid.Row="1"
+                   BackgroundColor="{StaticResource BgCard}"
+                   BorderColor="{StaticResource Border}"
+                   CornerRadius="14"
+                   Padding="25"
+                   HasShadow="False"
+                   VerticalOptions="Center"
+                   HorizontalOptions="Center"
+                   WidthRequest="600">
+                <VerticalStackLayout Spacing="20">
+                    <Label Text="🖥️" FontSize="64" HorizontalTextAlignment="Center" />
+                    
+                    <Label Text="Como funciona o teste?"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource TextPrimary}"
+                           HorizontalTextAlignment="Center" />
+
+                    <Label Text="O sistema entrará em modo de cores sólidas de tela cheia. Inspecione a tela atentamente procurando pontos pretos (pixels mortos) ou coloridos (pixels presos) que não condizem com a cor de fundo."
+                           FontSize="13"
+                           TextColor="{StaticResource TextSecondary}"
+                           HorizontalTextAlignment="Center"
+                           LineHeight="1.4" />
+
+                    <BoxView Color="{StaticResource Border}" HeightRequest="1" Margin="0,5,0,5" />
+
+                    <Label Text="Sequência de Cores:" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource Accent}" HorizontalTextAlignment="Center" />
+                    
+                    <FlexLayout JustifyContent="Center" AlignItems="Center" Wrap="Wrap">
+                        <Frame BackgroundColor="Red" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
+                        <Frame BackgroundColor="Green" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
+                        <Frame BackgroundColor="Blue" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
+                        <Frame BackgroundColor="White" BorderColor="Gray" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
+                        <Frame BackgroundColor="Black" BorderColor="Gray" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
+                        <Frame BackgroundColor="Yellow" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
+                        <Frame BackgroundColor="Magenta" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
+                        <Frame BackgroundColor="Cyan" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
+                    </FlexLayout>
+
+                    <Button Text="Iniciar Teste em Tela Cheia"
+                            Clicked="OnStartTestClicked"
+                            BackgroundColor="{StaticResource Accent}"
+                            TextColor="{StaticResource White}"
+                            CornerRadius="8"
+                            FontAttributes="Bold"
+                            HeightRequest="50"
+                            Margin="0,10,0,0" />
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Bottom legend -->
+            <Frame Grid.Row="2"
+                   BackgroundColor="{StaticResource BgCard}"
+                   BorderColor="{StaticResource Border}"
+                   CornerRadius="10"
+                   Padding="12"
+                   Margin="0,15,0,0"
+                   HasShadow="False">
+                <Label Text="Dica: Limpe sua tela antes de iniciar para não confundir poeira com dead pixels."
+                       FontSize="12"
+                       HorizontalTextAlignment="Center"
+                       TextColor="{StaticResource TextSecondary}" />
+            </Frame>
+        </Grid>
+
+        <!-- Fullscreen Testing Panel (Initially Hidden) -->
+        <Grid x:Name="LayoutFullscreen" 
+              IsVisible="False"
+              HorizontalOptions="FillAndExpand" 
+              VerticalOptions="FillAndExpand">
+            <Grid.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnFullscreenTapped" />
+            </Grid.GestureRecognizers>
+
+            <!-- Background Fill Color -->
+            <BoxView x:Name="BoxFill"
+                     Color="Red"
+                     HorizontalOptions="FillAndExpand"
+                     VerticalOptions="FillAndExpand" />
+
+            <!-- Pattern overlay if needed -->
+            <Grid x:Name="GridPattern" 
+                  IsVisible="False"
+                  HorizontalOptions="FillAndExpand"
+                  VerticalOptions="FillAndExpand">
+                <!-- Dotted patterns are handled via background or canvas, but we can display helper labels/shapes here. -->
+            </Grid>
+
+            <!-- Dynamic Floating Instructions (fades out or stays small) -->
+            <Border StrokeThickness="0"
+                    BackgroundColor="#B30A0A14"
+                    StrokeShape="RoundRectangle 8"
+                    Padding="15,8"
+                    HorizontalOptions="Center"
+                    VerticalOptions="End"
+                    Margin="0,0,0,30"
+                    InputTransparent="True">
+                <Label x:Name="LblFullscreenInstruction"
+                       Text="Cor Atual: Vermelho. Clique na tela para avançar. Pressione ESC para sair."
+                       TextColor="{StaticResource TextPrimary}"
+                       FontSize="12"
+                       FontAttributes="Bold"
+                       HorizontalTextAlignment="Center" />
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

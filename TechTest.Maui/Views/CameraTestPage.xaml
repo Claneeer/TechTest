@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="clr-namespace:CommunityToolkit.Maui.Views;assembly=CommunityToolkit.Maui.Camera"
+             x:Class="TechTest.Maui.Views.CameraTestPage"
+             BackgroundColor="{StaticResource BgPrimary}"
+             Shell.NavBarIsVisible="False">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="20">
+        
+        <!-- Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,15">
+            <VerticalStackLayout Grid.Column="0" Spacing="4">
+                <Label Text="Teste de Câmera (Webcam)"
+                       FontSize="24"
+                       FontAttributes="Bold"
+                       TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Verifique o funcionamento da câmera integrada e a qualidade da imagem"
+                       FontSize="13"
+                       TextColor="{StaticResource TextSecondary}" />
+            </VerticalStackLayout>
+            
+            <Button Grid.Column="1"
+                    Text="Voltar"
+                    Clicked="OnBackClicked"
+                    BackgroundColor="{StaticResource BgCard}"
+                    TextColor="{StaticResource TextPrimary}"
+                    BorderColor="{StaticResource Border}"
+                    BorderWidth="1"
+                    CornerRadius="8"
+                    HeightRequest="40"
+                    VerticalOptions="Center" />
+        </Grid>
+
+        <!-- Main Workspace -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,280" ColumnSpacing="20">
+            
+            <!-- Camera Preview Card -->
+            <Frame Grid.Column="0"
+                   BackgroundColor="#0A0A14"
+                   BorderColor="{StaticResource Border}"
+                   CornerRadius="14"
+                   Padding="10"
+                   HasShadow="False">
+                <Grid>
+                    <!-- Simulated camera card when not started -->
+                    <VerticalStackLayout x:Name="LayoutPlaceholder" 
+                                         VerticalOptions="Center" 
+                                         HorizontalOptions="Center" 
+                                         Spacing="15">
+                        <Label Text="📷" FontSize="64" HorizontalTextAlignment="Center" />
+                        <Label Text="Câmera Não Iniciada" 
+                               FontSize="16" 
+                               FontAttributes="Bold" 
+                               TextColor="{StaticResource TextPrimary}" 
+                               HorizontalTextAlignment="Center" />
+                        <Label Text="Clique no botão 'Iniciar Câmera' à direita para carregar a prévia física." 
+                               FontSize="12" 
+                               TextColor="{StaticResource TextSecondary}" 
+                               HorizontalTextAlignment="Center" 
+                               WidthRequest="300" />
+                    </VerticalStackLayout>
+
+                    <!-- Actual Toolkit CameraView -->
+                    <toolkit:CameraView x:Name="CamView"
+                                        IsVisible="False"
+                                        VerticalOptions="FillAndExpand"
+                                        HorizontalOptions="FillAndExpand" />
+                </Grid>
+            </Frame>
+
+            <!-- Control & Status Column -->
+            <VerticalStackLayout Grid.Column="1" Spacing="15">
+                
+                <!-- Status Panel -->
+                <Frame BackgroundColor="{StaticResource BgCard}"
+                       BorderColor="{StaticResource Border}"
+                       CornerRadius="12"
+                       Padding="15"
+                       HasShadow="False">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Controle da Câmera" 
+                               FontSize="14" 
+                               FontAttributes="Bold" 
+                               TextColor="{StaticResource Accent}" />
+                        
+                        <BoxView Color="{StaticResource Border}" HeightRequest="1" Margin="0,2,0,5" />
+
+                        <Button x:Name="BtnStartCamera"
+                                Text="Iniciar Câmera"
+                                Clicked="OnStartCameraClicked"
+                                BackgroundColor="{StaticResource Accent}"
+                                TextColor="{StaticResource White}"
+                                CornerRadius="8"
+                                HeightRequest="45" />
+
+                        <Button x:Name="BtnStopCamera"
+                                Text="Parar Câmera"
+                                Clicked="OnStopCameraClicked"
+                                BackgroundColor="{StaticResource BgPrimary}"
+                                TextColor="{StaticResource TextPrimary}"
+                                BorderColor="{StaticResource Border}"
+                                BorderWidth="1"
+                                CornerRadius="8"
+                                HeightRequest="45"
+                                IsEnabled="False" />
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Camera Info Panel -->
+                <Frame BackgroundColor="{StaticResource BgCard}"
+                       BorderColor="{StaticResource Border}"
+                       CornerRadius="12"
+                       Padding="15"
+                       HasShadow="False">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Detalhes do Dispositivo" 
+                               FontSize="14" 
+                               FontAttributes="Bold" 
+                               TextColor="{StaticResource Accent}" />
+
+                        <BoxView Color="{StaticResource Border}" HeightRequest="1" Margin="0,2,0,5" />
+
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+                            <Label Grid.Row="0" Grid.Column="0" Text="Dispositivo:" TextColor="{StaticResource TextSecondary}" FontSize="12" />
+                            <Label Grid.Row="0" Grid.Column="1" x:Name="LblDevice" Text="Desconectado" TextColor="{StaticResource TextPrimary}" FontSize="12" FontAttributes="Bold" />
+
+                            <Label Grid.Row="1" Grid.Column="0" Text="Permissão:" TextColor="{StaticResource TextSecondary}" FontSize="12" />
+                            <Label Grid.Row="1" Grid.Column="1" x:Name="LblPermission" Text="Não Solicitada" TextColor="{StaticResource Warning}" FontSize="12" FontAttributes="Bold" />
+
+                            <Label Grid.Row="2" Grid.Column="0" Text="Resolução:" TextColor="{StaticResource TextSecondary}" FontSize="12" />
+                            <Label Grid.Row="2" Grid.Column="1" x:Name="LblResolution" Text="N/A" TextColor="{StaticResource TextPrimary}" FontSize="12" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Frame>
+            </VerticalStackLayout>
+        </Grid>
+
+        <!-- Bottom legend -->
+        <Frame Grid.Row="2"
+               BackgroundColor="{StaticResource BgCard}"
+               BorderColor="{StaticResource Border}"
+               CornerRadius="10"
+               Padding="12"
+               Margin="0,15,0,0"
+               HasShadow="False">
+            <Label Text="Dica: Certifique-se de conceder acesso à webcam quando solicitado pelo sistema operacional."
+                   FontSize="12"
+                   HorizontalTextAlignment="Center"
+                   TextColor="{StaticResource TextSecondary}" />
+        </Frame>
+
+    </Grid>
+</ContentPage>

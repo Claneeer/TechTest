@@ -6,6 +6,8 @@ using System.Windows.Forms;
 using OpenCvSharp;
 using OpenCvSharp.Extensions;
 using TechTest.Helpers;
+using Point = System.Drawing.Point;
+using Size = System.Drawing.Size;
 
 namespace TechTest.Forms
 {
@@ -13,34 +15,101 @@ namespace TechTest.Forms
     {
         private PictureBox _picPreview;
         private Label _lblStatus, _lblInfo;
-        private Button _btnStart, _btnCapture, _btnMirror;
+        private Button _btnStart, _btnCapture;
         private CheckBox _chkMirror;
         private VideoCapture _capture;
         private CancellationTokenSource _cts;
         private bool _isMirrored;
         private bool _isRunning;
 
+        // Fields for responsive layout positioning
+        private Panel _previewBorder;
+        private Label _lblTitle, _lblDesc;
+
         public CameraTestForm()
         {
             Theme.StyleForm(this, "📷 Teste de Webcam", 850, 580);
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.MaximizeBox = true;
+            this.MinimumSize = new Size(Theme.S(650), Theme.S(450));
             BuildUI();
+
+            // Set initial layout placement
+            OnResize(EventArgs.Empty);
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            if (_picPreview == null) return;
+
+            int clientW = this.ClientSize.Width;
+            int clientH = this.ClientSize.Height;
+
+            // Header labels layout
+            if (_lblTitle != null)
+                _lblTitle.Location = new Point(Theme.S(30), Theme.S(20));
+
+            if (_lblDesc != null)
+                _lblDesc.Location = new Point(Theme.S(30), Theme.S(55));
+
+            // Camera preview panel (middle-left stretching area)
+            int rightPanelW = Theme.S(160);
+            int previewLeft = Theme.S(30);
+            int previewTop = Theme.S(95);
+            int previewBottomMargin = Theme.S(90);
+            int previewW = clientW - previewLeft - rightPanelW - Theme.S(20);
+            int previewH = clientH - previewTop - previewBottomMargin;
+
+            if (previewW < Theme.S(100)) previewW = Theme.S(100);
+            if (previewH < Theme.S(100)) previewH = Theme.S(100);
+
+            _picPreview.Location = new Point(previewLeft, previewTop);
+            _picPreview.Size = new Size(previewW, previewH);
+
+            if (_previewBorder != null)
+            {
+                _previewBorder.Location = new Point(previewLeft - 1, previewTop - 1);
+                _previewBorder.Size = new Size(previewW + 2, previewH + 2);
+            }
+
+            // Info panel on the right side, anchored to the right of preview
+            int rightX = _picPreview.Right + Theme.S(20);
+            if (_lblStatus != null)
+            {
+                _lblStatus.Location = new Point(rightX, previewTop);
+                _lblStatus.MaximumSize = new Size(clientW - rightX - Theme.S(15), 0);
+            }
+
+            if (_lblInfo != null)
+            {
+                _lblInfo.Location = new Point(rightX, previewTop + Theme.S(40));
+                _lblInfo.MaximumSize = new Size(clientW - rightX - Theme.S(15), 0);
+            }
+
+            // Bottom Buttons
+            int btnY = clientH - Theme.S(70);
+            if (_btnStart != null)
+                _btnStart.Location = new Point(Theme.S(30), btnY);
+            if (_btnCapture != null)
+                _btnCapture.Location = new Point(_btnStart.Right + Theme.S(10), btnY);
+            if (_chkMirror != null)
+                _chkMirror.Location = new Point(_btnCapture.Right + Theme.S(20), btnY + Theme.S(10));
         }
 
         private void BuildUI()
         {
-            var lblTitle = Theme.CreateLabel("Teste de Webcam", 30, 20, Theme.FontHeader);
-            Controls.Add(lblTitle);
+            _lblTitle = Theme.CreateLabel("Teste de Webcam", 30, 20, Theme.FontHeader);
+            Controls.Add(_lblTitle);
 
-            var lblDesc = Theme.CreateLabel(
+            _lblDesc = Theme.CreateLabel(
                 "Verifique se a câmera integrada do notebook está funcionando corretamente.",
                 30, 55, Theme.FontSmall, Theme.TextSecondary);
-            Controls.Add(lblDesc);
+            Controls.Add(_lblDesc);
 
             // Preview
             _picPreview = new PictureBox
             {
-                Location = new System.Drawing.Point(Theme.S(30), Theme.S(95)),
-                Size = new System.Drawing.Size(Theme.S(640), Theme.S(360)),
                 BackColor = Theme.BgDark,
                 SizeMode = PictureBoxSizeMode.Zoom,
                 BorderStyle = BorderStyle.None
@@ -59,40 +128,35 @@ namespace TechTest.Forms
                     }
                 }
             };
+            _picPreview.Resize += (s, e) => _picPreview.Invalidate();
             Controls.Add(_picPreview);
 
             // Border around preview
-            var previewBorder = new Panel
+            _previewBorder = new Panel
             {
-                Location = new System.Drawing.Point(Theme.S(29), Theme.S(94)),
-                Size = new System.Drawing.Size(Theme.S(642), Theme.S(362)),
                 BackColor = Color.Transparent
             };
-            previewBorder.Paint += (s, e) =>
+            _previewBorder.Paint += (s, e) =>
             {
                 using (var pen = new Pen(Theme.Border))
-                    e.Graphics.DrawRectangle(pen, 0, 0, previewBorder.Width - 1, previewBorder.Height - 1);
+                    e.Graphics.DrawRectangle(pen, 0, 0, _previewBorder.Width - 1, _previewBorder.Height - 1);
             };
-            Controls.Add(previewBorder);
-            previewBorder.SendToBack();
+            Controls.Add(_previewBorder);
+            _previewBorder.SendToBack();
 
             // Info panel on the right
-            int rightX = Theme.S(700);
-            _lblStatus = Theme.CreateLabel("⏸ Câmera desligada", rightX, Theme.S(95), Theme.FontBody, Theme.TextSecondary);
-            _lblStatus.MaximumSize = new System.Drawing.Size(Theme.S(130), 0);
+            _lblStatus = Theme.CreateLabel("⏸ Câmera desligada", 700, 95, Theme.FontBody, Theme.TextSecondary);
             Controls.Add(_lblStatus);
 
-            _lblInfo = Theme.CreateLabel("Resolução: —\nFPS: —", rightX, Theme.S(135), Theme.FontSmall, Theme.TextMuted);
-            _lblInfo.MaximumSize = new System.Drawing.Size(Theme.S(130), 0);
+            _lblInfo = Theme.CreateLabel("Resolução: —\nFPS: —", 700, 135, Theme.FontSmall, Theme.TextMuted);
             Controls.Add(_lblInfo);
 
             // Buttons
-            int btnY = 470;
-            _btnStart = Theme.CreateButton("▶ Iniciar", 30, btnY, 150, 42);
+            _btnStart = Theme.CreateButton("▶ Iniciar", 30, 470, 150, 42);
             _btnStart.Click += BtnStart_Click;
             Controls.Add(_btnStart);
 
-            _btnCapture = Theme.CreateButton("📸 Capturar Foto", 190, btnY, 170, 42);
+            _btnCapture = Theme.CreateButton("📸 Capturar Foto", 190, 470, 170, 42);
             _btnCapture.Click += BtnCapture_Click;
             _btnCapture.Enabled = false;
             Controls.Add(_btnCapture);
@@ -100,7 +164,6 @@ namespace TechTest.Forms
             _chkMirror = new CheckBox
             {
                 Text = "Espelhar",
-                Location = new System.Drawing.Point(Theme.S(380), Theme.S(btnY + 10)),
                 AutoSize = true,
                 ForeColor = Theme.TextSecondary,
                 Font = Theme.FontBody,

@@ -17,30 +17,121 @@ namespace TechTest.Forms
         private Button _btnClear;
         private bool _isDragging;
         private Point _lastPoint = Point.Empty;
-        private int _checksCompleted;
         private HashSet<string> _completedChecks = new HashSet<string>();
+
+        // Fields for responsive layout positioning
+        private Label _lblTitle, _lblDesc, _lblChecklistTitle, _lblLegend;
 
         public TouchpadTestForm()
         {
             Theme.StyleForm(this, "🖱 Teste de Touchpad", 900, 600);
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.MaximizeBox = true;
+            this.MinimumSize = new Size(Theme.S(750), Theme.S(500));
             BuildUI();
+
+            // Set initial layout placement
+            OnResize(EventArgs.Empty);
+        }
+
+        private void UpdateCanvasSize(int w, int h)
+        {
+            if (w < 1) w = 1;
+            if (h < 1) h = 1;
+
+            if (_canvasBitmap != null && _canvasBitmap.Width == w && _canvasBitmap.Height == h)
+                return;
+
+            Bitmap oldBitmap = _canvasBitmap;
+            Graphics oldGraphics = _canvasGraphics;
+
+            _canvasBitmap = new Bitmap(w, h);
+            _canvasGraphics = Graphics.FromImage(_canvasBitmap);
+            _canvasGraphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+            if (oldBitmap != null)
+            {
+                _canvasGraphics.Clear(Theme.BgDark);
+                _canvasGraphics.DrawImage(oldBitmap, 0, 0);
+                oldGraphics?.Dispose();
+                oldBitmap?.Dispose();
+            }
+            else
+            {
+                _canvasGraphics.Clear(Theme.BgDark);
+            }
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            if (_canvas == null) return;
+
+            int clientW = this.ClientSize.Width;
+            int clientH = this.ClientSize.Height;
+
+            // Header labels layout
+            if (_lblTitle != null)
+                _lblTitle.Location = new Point(Theme.S(30), Theme.S(15));
+
+            if (_lblDesc != null)
+                _lblDesc.Location = new Point(Theme.S(30), Theme.S(48));
+
+            // Canvas sizes: left margin = 30, right margin = 260 for checklist
+            int canvasLeft = Theme.S(30);
+            int canvasTop = Theme.S(85);
+            int rightPanelW = Theme.S(240);
+            int bottomMargin = Theme.S(85);
+
+            int canvasW = clientW - canvasLeft - rightPanelW;
+            int canvasH = clientH - canvasTop - bottomMargin;
+
+            if (canvasW < Theme.S(100)) canvasW = Theme.S(100);
+            if (canvasH < Theme.S(100)) canvasH = Theme.S(100);
+
+            _canvas.Location = new Point(canvasLeft, canvasTop);
+            _canvas.Size = new Size(canvasW, canvasH);
+
+            // Recreate/resize the canvas drawing bitmap without clearing it
+            UpdateCanvasSize(canvasW, canvasH);
+
+            // Checklist positioning on the right side
+            int rightX = _canvas.Right + Theme.S(20);
+            if (_lblChecklistTitle != null)
+                _lblChecklistTitle.Location = new Point(rightX, Theme.S(85));
+
+            int checkY = Theme.S(120);
+            if (_lblMoved != null) { _lblMoved.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
+            if (_lblLeftClick != null) { _lblLeftClick.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
+            if (_lblRightClick != null) { _lblRightClick.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
+            if (_lblScrollUp != null) { _lblScrollUp.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
+            if (_lblScrollDown != null) { _lblScrollDown.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
+            if (_lblDrag != null) { _lblDrag.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
+
+            if (_lblCounter != null)
+                _lblCounter.Location = new Point(rightX, checkY + Theme.S(15));
+
+            if (_btnClear != null)
+                _btnClear.Location = new Point(rightX, checkY + Theme.S(50));
+
+            // Legend at the bottom
+            if (_lblLegend != null)
+                _lblLegend.Location = new Point(Theme.S(30), clientH - Theme.S(60));
         }
 
         private void BuildUI()
         {
-            var lblTitle = Theme.CreateLabel("Teste de Touchpad", 30, 15, Theme.FontHeader);
-            Controls.Add(lblTitle);
+            _lblTitle = Theme.CreateLabel("Teste de Touchpad", 30, 15, Theme.FontHeader);
+            Controls.Add(_lblTitle);
 
-            var lblDesc = Theme.CreateLabel(
+            _lblDesc = Theme.CreateLabel(
                 "Use o touchpad para realizar cada ação. O canvas registra seus movimentos.",
                 30, 48, Theme.FontSmall, Theme.TextSecondary);
-            Controls.Add(lblDesc);
+            Controls.Add(_lblDesc);
 
             // Canvas
             _canvas = new Panel
             {
-                Location = new Point(Theme.S(30), Theme.S(85)),
-                Size = new Size(Theme.S(580), Theme.S(400)),
                 BackColor = Theme.BgDark,
                 Cursor = Cursors.Cross,
                 BorderStyle = BorderStyle.None
@@ -59,35 +150,30 @@ namespace TechTest.Forms
                     e.Graphics.DrawRectangle(pen, 0, 0, _canvas.Width - 1, _canvas.Height - 1);
             };
 
-            // Initialize canvas bitmap
-            _canvasBitmap = new Bitmap(_canvas.Width, _canvas.Height);
-            _canvasGraphics = Graphics.FromImage(_canvasBitmap);
-            _canvasGraphics.SmoothingMode = SmoothingMode.AntiAlias;
-            _canvasGraphics.Clear(Theme.BgDark);
-
             // Checklist panel
-            int rightX = Theme.S(640);
-            Controls.Add(Theme.CreateLabel("Checklist", rightX, Theme.S(85), Theme.FontButton));
+            _lblChecklistTitle = Theme.CreateLabel("Checklist", 640, 85, Theme.FontButton);
+            Controls.Add(_lblChecklistTitle);
 
             int checkY = Theme.S(120);
-            _lblMoved = CreateCheckLabel("Movimento detectado", rightX, checkY); checkY += Theme.S(35);
-            _lblLeftClick = CreateCheckLabel("Clique esquerdo", rightX, checkY); checkY += Theme.S(35);
-            _lblRightClick = CreateCheckLabel("Clique direito", rightX, checkY); checkY += Theme.S(35);
-            _lblScrollUp = CreateCheckLabel("Scroll para cima", rightX, checkY); checkY += Theme.S(35);
-            _lblScrollDown = CreateCheckLabel("Scroll para baixo", rightX, checkY); checkY += Theme.S(35);
-            _lblDrag = CreateCheckLabel("Arrastar (drag)", rightX, checkY); checkY += Theme.S(35);
+            _lblMoved = CreateCheckLabel("Movimento detectado", 640, checkY); checkY += Theme.S(35);
+            _lblLeftClick = CreateCheckLabel("Clique esquerdo", 640, checkY); checkY += Theme.S(35);
+            _lblRightClick = CreateCheckLabel("Clique direito", 640, checkY); checkY += Theme.S(35);
+            _lblScrollUp = CreateCheckLabel("Scroll para cima", 640, checkY); checkY += Theme.S(35);
+            _lblScrollDown = CreateCheckLabel("Scroll para baixo", 640, checkY); checkY += Theme.S(35);
+            _lblDrag = CreateCheckLabel("Arrastar (drag)", 640, checkY); checkY += Theme.S(35);
 
-            _lblCounter = Theme.CreateLabel("0 / 6 testes", rightX, checkY + Theme.S(15), Theme.FontBody, Theme.TextSecondary);
+            _lblCounter = Theme.CreateLabel("0 / 6 testes", 640, checkY + Theme.S(15), Theme.FontBody, Theme.TextSecondary);
             Controls.Add(_lblCounter);
 
             // Buttons
-            _btnClear = Theme.CreateSecondaryButton("🔄 Limpar", rightX, checkY + Theme.S(50), 120, 36);
+            _btnClear = Theme.CreateSecondaryButton("🔄 Limpar", 640, checkY + Theme.S(50), 120, 36);
             _btnClear.Click += (s, e) => ClearAll();
             Controls.Add(_btnClear);
 
             // Legend
-            Controls.Add(Theme.CreateLabel("🟢 Clique esquerdo  🔵 Clique direito  ⬜ Arraste",
-                30, 500, Theme.FontSmall, Theme.TextMuted));
+            _lblLegend = Theme.CreateLabel("🟢 Clique esquerdo  🔵 Clique direito  ⬜ Arraste",
+                30, 500, Theme.FontSmall, Theme.TextMuted);
+            Controls.Add(_lblLegend);
         }
 
         private Label CreateCheckLabel(string text, int x, int y)
