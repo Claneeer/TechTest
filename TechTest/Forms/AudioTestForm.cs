@@ -35,8 +35,9 @@ namespace TechTest.Forms
         private Label _lblFreqText, _lblFreqMin, _lblFreqMax;
         private Label _lblVolText, _lblVolMin, _lblVol100, _lblVolMax;
 
-        // Fields for custom audio (USB Pendrive)
+        // Fields for custom audio (USB Pendrive / Manual Selection)
         private ComboBox _cmbCustomAudio;
+        private Button _btnBrowseCustom;
         private Button _btnRefreshCustom;
         private Label _lblCustomAudioText;
         private Label _lblCustomAudioInfo;
@@ -120,12 +121,18 @@ namespace TechTest.Forms
             if (_cmbCustomAudio != null)
             {
                 _cmbCustomAudio.Location = new Point(inputLeft, Theme.S(237));
-                _cmbCustomAudio.Width = sliderWidth - Theme.S(110);
+                _cmbCustomAudio.Width = sliderWidth - Theme.S(220); // Shortened for two buttons next to it
             }
 
-            if (_btnRefreshCustom != null && _cmbCustomAudio != null)
+            if (_btnBrowseCustom != null && _cmbCustomAudio != null)
             {
-                _btnRefreshCustom.Location = new Point(_cmbCustomAudio.Right + Theme.S(10), Theme.S(237));
+                _btnBrowseCustom.Location = new Point(_cmbCustomAudio.Right + Theme.S(10), Theme.S(237));
+                _btnBrowseCustom.Size = new Size(Theme.S(100), Theme.S(28));
+            }
+
+            if (_btnRefreshCustom != null && _btnBrowseCustom != null)
+            {
+                _btnRefreshCustom.Location = new Point(_btnBrowseCustom.Right + Theme.S(10), Theme.S(237));
                 _btnRefreshCustom.Size = new Size(Theme.S(100), Theme.S(28));
             }
 
@@ -321,6 +328,10 @@ namespace TechTest.Forms
             };
             Controls.Add(_cmbCustomAudio);
 
+            _btnBrowseCustom = Theme.CreateSecondaryButton("📂 Procurar", 0, 0, 100, 30);
+            _btnBrowseCustom.Click += (s, e) => BrowseCustomAudio();
+            Controls.Add(_btnBrowseCustom);
+
             _btnRefreshCustom = Theme.CreateSecondaryButton("🔄 Atualizar", 0, 0, 100, 30);
             _btnRefreshCustom.Click += (s, e) => ScanCustomAudio();
             Controls.Add(_btnRefreshCustom);
@@ -386,6 +397,7 @@ namespace TechTest.Forms
         {
             _lblCustomAudioText.Visible = visible;
             _cmbCustomAudio.Visible = visible;
+            _btnBrowseCustom.Visible = visible;
             _btnRefreshCustom.Visible = visible;
             _lblCustomAudioInfo.Visible = visible;
         }
@@ -437,8 +449,46 @@ namespace TechTest.Forms
                 _cmbCustomAudio.Items.Add("Nenhum áudio detectado em [Pendrive]:\\TechTestAudio");
                 _cmbCustomAudio.SelectedIndex = 0;
                 _cmbCustomAudio.Enabled = false;
-                _lblCustomAudioInfo.Text = "📁 Crie a pasta 'TechTestAudio' na raiz do pendrive e coloque arquivos MP3/WAV.";
+                _lblCustomAudioInfo.Text = "📁 Crie a pasta 'TechTestAudio' na raiz do pendrive ou clique em 'Procurar' para selecionar.";
                 _lblCustomAudioInfo.ForeColor = Theme.TextMuted;
+            }
+        }
+
+        private void BrowseCustomAudio()
+        {
+            using (var ofd = new OpenFileDialog())
+            {
+                ofd.Filter = "Arquivos de Áudio|*.mp3;*.wav;*.wma;*.flac;*.ogg;*.aac;*.m4a|Todos os Arquivos|*.*";
+                ofd.Title = "Selecionar Áudio de Teste";
+                if (ofd.ShowDialog() == DialogResult.OK)
+                {
+                    string filePath = ofd.FileName;
+                    string fileName = System.IO.Path.GetFileName(filePath);
+
+                    int existingIndex = _customAudioFiles.IndexOf(filePath);
+                    if (existingIndex >= 0)
+                    {
+                        _cmbCustomAudio.SelectedIndex = existingIndex;
+                    }
+                    else
+                    {
+                        // Remove placeholder if it was there
+                        if (_customAudioFiles.Count == 0 && _cmbCustomAudio.Items.Count > 0 &&
+                            (_cmbCustomAudio.Items[0].ToString().Contains("Nenhum áudio") || _cmbCustomAudio.Items[0].ToString().Contains("TechTestAudio")))
+                        {
+                            _cmbCustomAudio.Items.Clear();
+                        }
+
+                        _customAudioFiles.Add(filePath);
+                        _cmbCustomAudio.Items.Add("📂 " + fileName);
+                        _cmbCustomAudio.SelectedIndex = _cmbCustomAudio.Items.Count - 1;
+                        _cmbCustomAudio.Enabled = true;
+                        _lblCustomAudioInfo.Text = $"✨ Selecionado: {fileName}";
+                        _lblCustomAudioInfo.ForeColor = Theme.Success;
+                    }
+
+                    if (_isPlaying) RestartTone();
+                }
             }
         }
 
