@@ -290,7 +290,6 @@ namespace TechTest.Forms
                 catch { }
 
                 // Robust RAM slot correction — BIOS/SMBIOS firmware often reports incorrect slot counts
-                // Strategy: 1) Detect chassis type (laptop=2 max), 2) Board form factor, 3) Chipset, 4) Sanity ratio
                 try
                 {
                     // Step 1: Detect if laptop/portable — laptops physically have max 2 RAM slots
@@ -320,47 +319,148 @@ namespace TechTest.Forms
                     }
                     catch { }
 
-                    if (isLaptop && totalSlots > 2)
+                    // Step 1.1: Check if battery exists (laptop signature)
+                    if (!isLaptop)
                     {
-                        totalSlots = 2;
-                    }
-
-                    // Step 2: Check motherboard model for form factor and chipset hints
-                    if (totalSlots > 2)
-                    {
-                        string boardModel = "";
                         try
                         {
-                            using (var searcher = new ManagementObjectSearcher("SELECT Product FROM Win32_BaseBoard"))
+                            using (var searcher = new ManagementObjectSearcher("SELECT EstimateRunTime FROM Win32_Battery"))
                             {
-                                foreach (ManagementObject obj in searcher.Get())
+                                if (searcher.Get().Count > 0)
                                 {
-                                    boardModel = obj["Product"]?.ToString()?.Trim() ?? "";
-                                    break;
+                                    isLaptop = true;
                                 }
                             }
                         }
                         catch { }
+                    }
 
+                    // Step 1.2: Check CPU name for mobile indicator
+                    if (!isLaptop)
+                    {
+                        try
+                        {
+                            using (var searcher = new ManagementObjectSearcher("SELECT Name FROM Win32_Processor"))
+                            {
+                                foreach (ManagementObject obj in searcher.Get())
+                                {
+                                    string cpuName = obj["Name"]?.ToString()?.ToUpperInvariant() ?? "";
+                                    if (cpuName.Contains("MOBILE") || cpuName.Contains("INTEL CORE M") ||
+                                        (cpuName.Contains("RYZEN") && (cpuName.EndsWith("U") || cpuName.EndsWith("H") || cpuName.EndsWith("HS") || cpuName.EndsWith("HX") || cpuName.Contains("U ") || cpuName.Contains("H ") || cpuName.Contains("HS ") || cpuName.Contains("HX "))) ||
+                                        (cpuName.Contains("INTEL") && (cpuName.Contains("-") && (cpuName.Contains("U") || cpuName.Contains("Y") || cpuName.Contains("H") || cpuName.Contains("G1") || cpuName.Contains("G4") || cpuName.Contains("G7")))))
+                                    {
+                                        isLaptop = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+
+                    // Step 2: Check motherboard model for form factor and chipset hints
+                    string boardModel = "";
+                    try
+                    {
+                        using (var searcher = new ManagementObjectSearcher("SELECT Product FROM Win32_BaseBoard"))
+                        {
+                            foreach (ManagementObject obj in searcher.Get())
+                            {
+                                boardModel = obj["Product"]?.ToString()?.Trim() ?? "";
+                                break;
+                            }
+                        }
+                    }
+                    catch { }
+
+                    // Step 2.1: Check computer system model for laptop keywords
+                    if (!isLaptop)
+                    {
+                        try
+                        {
+                            using (var searcher = new ManagementObjectSearcher("SELECT Model FROM Win32_ComputerSystem"))
+                            {
+                                foreach (ManagementObject obj in searcher.Get())
+                                {
+                                    string sysModel = obj["Model"]?.ToString()?.ToUpperInvariant() ?? "";
+                                    if (sysModel.Contains("NOTEBOOK") || sysModel.Contains("LAPTOP") || sysModel.Contains("THINKPAD") ||
+                                        sysModel.Contains("LATITUDE") || sysModel.Contains("INSPIRON") || sysModel.Contains("IDEAPAD") ||
+                                        sysModel.Contains("ZENBOOK") || sysModel.Contains("VIVOBOOK") || sysModel.Contains("MACBOOK") ||
+                                        sysModel.Contains("ASPIRE") || sysModel.Contains("BOOK"))
+                                    {
+                                        isLaptop = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+
+                    if (isLaptop)
+                    {
+                        totalSlots = 2;
+                    }
+                    else
+                    {
+                        // Desktop PC slot estimation
+                        bool isCompactBoard = false;
                         if (!string.IsNullOrEmpty(boardModel))
                         {
                             string model = boardModel.ToUpperInvariant();
 
                             // 2a: Chipsets that physically support max 2 DIMM slots
-                            string[] twoSlotChipsets = { "H610", "H510", "H410", "H310", "H110", "H81", "H61", "A320" };
+                            string[] twoSlotChipsets = { "H610", "H510", "H410", "H310", "H110", "H81", "H61", "A320", "A520", "A620" };
                             foreach (var chipset in twoSlotChipsets)
                             {
-                                if (model.Contains(chipset)) { totalSlots = 2; break; }
+                                if (model.Contains(chipset)) { isCompactBoard = true; break; }
                             }
 
                             // 2b: Board model suffixes/keywords that indicate compact 2-slot designs
-                            if (totalSlots > 2)
+                            if (!isCompactBoard)
                             {
-                                string[] twoSlotKeywords = { "-K", "-HDV", "-HVS", "-DX", "DXV4", "A PRO", "-A PRO", "PRO-VH", "MCR-A520M", "-M-ITX", "MINI-ITX" };
+                                string[] twoSlotKeywords = { "-K", "-HDV", "-HVS", "-DX", "DXV4", "A PRO", "-A PRO", "PRO-VH", "MCR-A520M", "-M-ITX", "MINI-ITX", "ITX", "M-ATX" };
                                 foreach (var kw in twoSlotKeywords)
                                 {
-                                    if (model.Contains(kw)) { totalSlots = 2; break; }
+                                    if (model.Contains(kw)) { isCompactBoard = true; break; }
                                 }
+                            }
+                        }
+
+                        if (isCompactBoard)
+                        {
+                            totalSlots = 2;
+                        }
+                        else
+                        {
+                            // Standard consumer desktops have 4 physical slots.
+                            // Only servers / high-end workstations (e.g. Xeon, Epyc, Threadripper) have 8 or more.
+                            bool isHighEnd = false;
+                            try
+                            {
+                                using (var searcher = new ManagementObjectSearcher("SELECT Name FROM Win32_Processor"))
+                                {
+                                    foreach (ManagementObject obj in searcher.Get())
+                                    {
+                                        string cpuName = obj["Name"]?.ToString()?.ToUpperInvariant() ?? "";
+                                        if (cpuName.Contains("XEON") || cpuName.Contains("EPYC") || cpuName.Contains("THREADRIPPER"))
+                                        {
+                                            isHighEnd = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            catch { }
+
+                            if (isHighEnd || totalSlots > 8)
+                            {
+                                // Keep high count if truly high-end
+                                if (totalSlots > 8) totalSlots = 8;
+                            }
+                            else
+                            {
+                                totalSlots = 4;
                             }
                         }
                     }
@@ -397,15 +497,6 @@ namespace TechTest.Forms
                 catch { }
 
                 specs.RamOccupiedSlots = specs.RamSlots.Count;
-
-                // Step 3 (final sanity): If firmware reports way more slots than physically occupied,
-                // it's almost certainly BIOS misinformation (e.g., 8 reported but only 2 sticks installed).
-                // Consumer boards never have more than 4 slots. If total > 2x occupied, cap it.
-                if (totalSlots > specs.RamOccupiedSlots * 2 && specs.RamOccupiedSlots > 0)
-                {
-                    totalSlots = specs.RamOccupiedSlots;
-                }
-
                 specs.RamTotalSlots = Math.Max(totalSlots, specs.RamOccupiedSlots);
 
                 if (ramBytes > 0)

@@ -19,6 +19,20 @@ namespace TechTest.Forms
         private Point _lastPoint = Point.Empty;
         private HashSet<string> _completedChecks = new HashSet<string>();
 
+        // Mode Selection Controls
+        private RadioButton _radFreeDraw;
+        private RadioButton _radGridMode;
+        private Label _lblModeText;
+        private Label _lblGridProgress;
+
+        // Grid parameters (10 columns by 8 rows = 80 zones)
+        private const int GridCols = 10;
+        private const int GridRows = 8;
+        private bool[,] _visitedZones = new bool[GridCols, GridRows];
+        private Point _currentZone = new Point(-1, -1);
+        private int _totalZones = GridCols * GridRows;
+        private int _visitedCount = 0;
+
         // Fields for responsive layout positioning
         private Label _lblTitle, _lblDesc, _lblChecklistTitle, _lblLegend;
 
@@ -77,9 +91,19 @@ namespace TechTest.Forms
             if (_lblDesc != null)
                 _lblDesc.Location = new Point(Theme.S(30), Theme.S(48));
 
+            // Mode Selector positioning
+            if (_lblModeText != null)
+                _lblModeText.Location = new Point(Theme.S(30), Theme.S(80));
+
+            if (_radFreeDraw != null)
+                _radFreeDraw.Location = new Point(Theme.S(150), Theme.S(76));
+
+            if (_radGridMode != null)
+                _radGridMode.Location = new Point(Theme.S(300), Theme.S(76));
+
             // Canvas sizes: left margin = 30, right margin = 260 for checklist
             int canvasLeft = Theme.S(30);
-            int canvasTop = Theme.S(85);
+            int canvasTop = Theme.S(115); // pushed down by mode selector
             int rightPanelW = Theme.S(240);
             int bottomMargin = Theme.S(85);
 
@@ -98,9 +122,9 @@ namespace TechTest.Forms
             // Checklist positioning on the right side
             int rightX = _canvas.Right + Theme.S(20);
             if (_lblChecklistTitle != null)
-                _lblChecklistTitle.Location = new Point(rightX, Theme.S(85));
+                _lblChecklistTitle.Location = new Point(rightX, Theme.S(115));
 
-            int checkY = Theme.S(120);
+            int checkY = Theme.S(150);
             if (_lblMoved != null) { _lblMoved.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
             if (_lblLeftClick != null) { _lblLeftClick.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
             if (_lblRightClick != null) { _lblRightClick.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
@@ -108,11 +132,14 @@ namespace TechTest.Forms
             if (_lblScrollDown != null) { _lblScrollDown.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
             if (_lblDrag != null) { _lblDrag.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
 
+            if (_lblGridProgress != null)
+                _lblGridProgress.Location = new Point(rightX, checkY + Theme.S(5));
+
             if (_lblCounter != null)
-                _lblCounter.Location = new Point(rightX, checkY + Theme.S(15));
+                _lblCounter.Location = new Point(rightX, checkY + Theme.S(30));
 
             if (_btnClear != null)
-                _btnClear.Location = new Point(rightX, checkY + Theme.S(50));
+                _btnClear.Location = new Point(rightX, checkY + Theme.S(65));
 
             // Legend at the bottom
             if (_lblLegend != null)
@@ -129,6 +156,33 @@ namespace TechTest.Forms
                 30, 48, Theme.FontSmall, Theme.TextSecondary);
             Controls.Add(_lblDesc);
 
+            // === Mode Selector ===
+            _lblModeText = Theme.CreateLabel("Modo de Teste:", 30, 80, Theme.FontBody);
+            Controls.Add(_lblModeText);
+
+            _radFreeDraw = new RadioButton
+            {
+                Text = "🖊️ Desenho Livre",
+                Location = new Point(Theme.S(150), Theme.S(76)),
+                Font = Theme.FontBody,
+                ForeColor = Theme.TextPrimary,
+                AutoSize = true,
+                Checked = true
+            };
+            _radFreeDraw.CheckedChanged += (s, e) => { if (_radFreeDraw.Checked) SwitchMode(false); };
+            Controls.Add(_radFreeDraw);
+
+            _radGridMode = new RadioButton
+            {
+                Text = "🔲 Grade de Zonas (Quadrados)",
+                Location = new Point(Theme.S(300), Theme.S(76)),
+                Font = Theme.FontBody,
+                ForeColor = Theme.TextPrimary,
+                AutoSize = true
+            };
+            _radGridMode.CheckedChanged += (s, e) => { if (_radGridMode.Checked) SwitchMode(true); };
+            Controls.Add(_radGridMode);
+
             // Canvas
             _canvas = new Panel
             {
@@ -141,9 +195,17 @@ namespace TechTest.Forms
             _canvas.MouseDown += Canvas_MouseDown;
             _canvas.MouseUp += Canvas_MouseUp;
             _canvas.MouseWheel += Canvas_MouseWheel;
+            _canvas.MouseLeave += (s, e) =>
+            {
+                if (_radGridMode != null && _radGridMode.Checked)
+                {
+                    _currentZone = new Point(-1, -1);
+                    _canvas.Invalidate();
+                }
+            };
             Controls.Add(_canvas);
 
-            // Canvas border
+            // Canvas border drawing handler
             _canvas.Paint += (s, e) =>
             {
                 using (var pen = new Pen(Theme.Border))
@@ -151,10 +213,10 @@ namespace TechTest.Forms
             };
 
             // Checklist panel
-            _lblChecklistTitle = Theme.CreateLabel("Checklist", 640, 85, Theme.FontButton);
+            _lblChecklistTitle = Theme.CreateLabel("Checklist", 640, 115, Theme.FontButton);
             Controls.Add(_lblChecklistTitle);
 
-            int checkY = Theme.S(120);
+            int checkY = Theme.S(150);
             _lblMoved = CreateCheckLabel("Movimento detectado", 640, checkY); checkY += Theme.S(35);
             _lblLeftClick = CreateCheckLabel("Clique esquerdo", 640, checkY); checkY += Theme.S(35);
             _lblRightClick = CreateCheckLabel("Clique direito", 640, checkY); checkY += Theme.S(35);
@@ -162,11 +224,16 @@ namespace TechTest.Forms
             _lblScrollDown = CreateCheckLabel("Scroll para baixo", 640, checkY); checkY += Theme.S(35);
             _lblDrag = CreateCheckLabel("Arrastar (drag)", 640, checkY); checkY += Theme.S(35);
 
-            _lblCounter = Theme.CreateLabel("0 / 6 testes", 640, checkY + Theme.S(15), Theme.FontBody, Theme.TextSecondary);
+            // Grid Progress Label
+            _lblGridProgress = Theme.CreateLabel("0 / 80 zonas tocadas", 640, checkY + Theme.S(5), Theme.FontBody, Theme.TextSecondary);
+            _lblGridProgress.Visible = false;
+            Controls.Add(_lblGridProgress);
+
+            _lblCounter = Theme.CreateLabel("0 / 6 testes", 640, checkY + Theme.S(30), Theme.FontBody, Theme.TextSecondary);
             Controls.Add(_lblCounter);
 
             // Buttons
-            _btnClear = Theme.CreateSecondaryButton("🔄 Limpar", 640, checkY + Theme.S(50), 120, 36);
+            _btnClear = Theme.CreateSecondaryButton("🔄 Limpar", 640, checkY + Theme.S(65), 120, 36);
             _btnClear.Click += (s, e) => ClearAll();
             Controls.Add(_btnClear);
 
@@ -206,29 +273,162 @@ namespace TechTest.Forms
             }
         }
 
+        private void SwitchMode(bool gridMode)
+        {
+            _lblGridProgress.Visible = gridMode;
+            if (gridMode)
+            {
+                _lblLegend.Text = "🟢 Quadrado visitado  🔵 Posição atual";
+            }
+            else
+            {
+                _lblLegend.Text = "🟢 Clique esquerdo  🔵 Clique direito  ⬜ Arraste";
+            }
+
+            _currentZone = new Point(-1, -1);
+            _canvas.Invalidate();
+        }
+
+        private void UpdateGridProgress()
+        {
+            if (_lblGridProgress != null)
+            {
+                _lblGridProgress.Text = $"{_visitedCount} / {_totalZones} zonas tocadas";
+                if (_visitedCount >= _totalZones)
+                {
+                    _lblGridProgress.Text = $"✅ {_totalZones} / {_totalZones} — Touchpad 100% funcional!";
+                    _lblGridProgress.ForeColor = Theme.Success;
+                }
+                else
+                {
+                    _lblGridProgress.ForeColor = Theme.TextSecondary;
+                }
+            }
+        }
+
         private void Canvas_Paint(object sender, PaintEventArgs e)
         {
-            if (_canvasBitmap != null)
-                e.Graphics.DrawImage(_canvasBitmap, 0, 0);
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            if (_radGridMode != null && _radGridMode.Checked)
+            {
+                // Draw Grid Mode (10 cols x 8 rows)
+                int w = _canvas.Width;
+                int h = _canvas.Height;
+                float cellW = (float)w / GridCols;
+                float cellH = (float)h / GridRows;
+
+                for (int col = 0; col < GridCols; col++)
+                {
+                    for (int row = 0; row < GridRows; row++)
+                    {
+                        float x = col * cellW;
+                        float y = row * cellH;
+
+                        RectangleF rect = new RectangleF(x, y, cellW, cellH);
+
+                        // Pick background color
+                        Color bgColor = Theme.BgDark;
+                        if (_currentZone.X == col && _currentZone.Y == row)
+                        {
+                            bgColor = Color.FromArgb(50, Theme.Accent); // highlight current zone with semi-transparent accent (blue)
+                        }
+                        else if (_visitedZones[col, row])
+                        {
+                            bgColor = Color.FromArgb(40, Theme.Success); // semi-transparent success (green)
+                        }
+
+                        using (var brush = new SolidBrush(bgColor))
+                            g.FillRectangle(brush, rect);
+
+                        // Draw borders
+                        Color borderColor = Theme.Border;
+                        float borderWidth = 1f;
+
+                        if (_currentZone.X == col && _currentZone.Y == row)
+                        {
+                            borderColor = Theme.Accent; // current zone border
+                            borderWidth = 2.5f;
+                        }
+                        else if (_visitedZones[col, row])
+                        {
+                            borderColor = Theme.Success; // visited zone border
+                            borderWidth = 1.5f;
+                        }
+
+                        using (var pen = new Pen(borderColor, borderWidth))
+                        {
+                            g.DrawRectangle(pen, x + borderWidth / 2, y + borderWidth / 2, cellW - borderWidth, cellH - borderWidth);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Draw Free Draw Mode
+                if (_canvasBitmap != null)
+                    g.DrawImage(_canvasBitmap, 0, 0);
+            }
         }
 
         private void Canvas_MouseMove(object sender, MouseEventArgs e)
         {
             CompleteCheck("move", _lblMoved);
 
-            if (_isDragging && _lastPoint != Point.Empty)
+            if (_radGridMode != null && _radGridMode.Checked)
             {
-                using (var pen = new Pen(Theme.TextPrimary, 2f))
-                    _canvasGraphics.DrawLine(pen, _lastPoint, e.Location);
-                _canvas.Invalidate();
-                CompleteCheck("drag", _lblDrag);
+                // Grid Mode logic
+                int w = _canvas.Width;
+                int h = _canvas.Height;
+                if (w > 0 && h > 0)
+                {
+                    float cellW = (float)w / GridCols;
+                    float cellH = (float)h / GridRows;
+
+                    int col = (int)(e.X / cellW);
+                    int row = (int)(e.Y / cellH);
+
+                    // Clamp to grid limits
+                    col = Math.Max(0, Math.Min(col, GridCols - 1));
+                    row = Math.Max(0, Math.Min(row, GridRows - 1));
+
+                    Point newZone = new Point(col, row);
+                    if (newZone != _currentZone)
+                    {
+                        _currentZone = newZone;
+
+                        if (!_visitedZones[col, row])
+                        {
+                            _visitedZones[col, row] = true;
+                            _visitedCount = 0;
+                            for (int c = 0; c < GridCols; c++)
+                                for (int r = 0; r < GridRows; r++)
+                                    if (_visitedZones[c, r]) _visitedCount++;
+
+                            UpdateGridProgress();
+                        }
+
+                        _canvas.Invalidate();
+                    }
+                }
             }
-            else if (e.Button == MouseButtons.None)
+            else
             {
-                // Draw faint trail for movement
-                using (var brush = new SolidBrush(Color.FromArgb(30, Theme.Accent)))
-                    _canvasGraphics.FillEllipse(brush, e.X - 2, e.Y - 2, 4, 4);
-                _canvas.Invalidate();
+                // Free Draw Mode logic
+                if (_isDragging && _lastPoint != Point.Empty)
+                {
+                    using (var pen = new Pen(Theme.TextPrimary, 2f))
+                        _canvasGraphics.DrawLine(pen, _lastPoint, e.Location);
+                    _canvas.Invalidate();
+                    CompleteCheck("drag", _lblDrag);
+                }
+                else if (e.Button == MouseButtons.None)
+                {
+                    using (var brush = new SolidBrush(Color.FromArgb(30, Theme.Accent)))
+                        _canvasGraphics.FillEllipse(brush, e.X - 2, e.Y - 2, 4, 4);
+                    _canvas.Invalidate();
+                }
             }
 
             _lastPoint = e.Location;
@@ -239,16 +439,22 @@ namespace TechTest.Forms
             if (e.Button == MouseButtons.Left)
             {
                 CompleteCheck("leftclick", _lblLeftClick);
-                using (var brush = new SolidBrush(Theme.Success))
-                    _canvasGraphics.FillEllipse(brush, e.X - 6, e.Y - 6, 12, 12);
-                _isDragging = true;
-                _lastPoint = e.Location;
+                if (_radGridMode == null || !_radGridMode.Checked)
+                {
+                    using (var brush = new SolidBrush(Theme.Success))
+                        _canvasGraphics.FillEllipse(brush, e.X - 6, e.Y - 6, 12, 12);
+                    _isDragging = true;
+                    _lastPoint = e.Location;
+                }
             }
             else if (e.Button == MouseButtons.Right)
             {
                 CompleteCheck("rightclick", _lblRightClick);
-                using (var brush = new SolidBrush(Theme.Accent))
-                    _canvasGraphics.FillEllipse(brush, e.X - 6, e.Y - 6, 12, 12);
+                if (_radGridMode == null || !_radGridMode.Checked)
+                {
+                    using (var brush = new SolidBrush(Theme.Accent))
+                        _canvasGraphics.FillEllipse(brush, e.X - 6, e.Y - 6, 12, 12);
+                }
             }
             _canvas.Invalidate();
         }
@@ -264,32 +470,49 @@ namespace TechTest.Forms
             if (e.Delta > 0)
             {
                 CompleteCheck("scrollup", _lblScrollUp);
-                // Draw up arrow indicator
-                using (var brush = new SolidBrush(Theme.Warning))
-                    _canvasGraphics.FillPolygon(brush, new Point[]
-                    {
-                        new Point(e.X, e.Y - 10),
-                        new Point(e.X - 6, e.Y + 4),
-                        new Point(e.X + 6, e.Y + 4)
-                    });
+                if (_radGridMode == null || !_radGridMode.Checked)
+                {
+                    using (var brush = new SolidBrush(Theme.Warning))
+                        _canvasGraphics.FillPolygon(brush, new Point[]
+                        {
+                            new Point(e.X, e.Y - 10),
+                            new Point(e.X - 6, e.Y + 4),
+                            new Point(e.X + 6, e.Y + 4)
+                        });
+                }
             }
             else
             {
                 CompleteCheck("scrolldown", _lblScrollDown);
-                using (var brush = new SolidBrush(Theme.Warning))
-                    _canvasGraphics.FillPolygon(brush, new Point[]
-                    {
-                        new Point(e.X, e.Y + 10),
-                        new Point(e.X - 6, e.Y - 4),
-                        new Point(e.X + 6, e.Y - 4)
-                    });
+                if (_radGridMode == null || !_radGridMode.Checked)
+                {
+                    using (var brush = new SolidBrush(Theme.Warning))
+                        g_draw_polygon(brush, e.X, e.Y);
+                }
             }
             _canvas.Invalidate();
         }
 
+        private void g_draw_polygon(Brush brush, int x, int y)
+        {
+            _canvasGraphics.FillPolygon(brush, new Point[]
+            {
+                new Point(x, y + 10),
+                new Point(x - 6, y - 4),
+                new Point(x + 6, y - 4)
+            });
+        }
+
         private void ClearAll()
         {
-            _canvasGraphics.Clear(Theme.BgDark);
+            if (_canvasGraphics != null)
+                _canvasGraphics.Clear(Theme.BgDark);
+
+            Array.Clear(_visitedZones, 0, _visitedZones.Length);
+            _visitedCount = 0;
+            _currentZone = new Point(-1, -1);
+            UpdateGridProgress();
+
             _canvas.Invalidate();
             _completedChecks.Clear();
 

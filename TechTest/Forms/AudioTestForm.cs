@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -34,6 +35,15 @@ namespace TechTest.Forms
         private Label _lblFreqText, _lblFreqMin, _lblFreqMax;
         private Label _lblVolText, _lblVolMin, _lblVol100, _lblVolMax;
 
+        // Fields for custom audio (USB Pendrive)
+        private ComboBox _cmbCustomAudio;
+        private Button _btnRefreshCustom;
+        private Label _lblCustomAudioText;
+        private Label _lblCustomAudioInfo;
+        private List<string> _customAudioFiles = new List<string>();
+        private AudioFileReader _customAudioReader;
+        private VolumeSampleProvider _volumeProvider;
+
         public AudioTestForm()
         {
             Theme.StyleForm(this, "🔊 Teste de Alto-falantes", 830, 620);
@@ -41,6 +51,9 @@ namespace TechTest.Forms
             this.MaximizeBox = true;
             this.MinimumSize = new Size(Theme.S(720), Theme.S(550));
             BuildUI();
+
+            // Scan custom audio files initially
+            ScanCustomAudio();
 
             // Set initial layout placement
             OnResize(EventArgs.Empty);
@@ -99,8 +112,31 @@ namespace TechTest.Forms
             if (_lblVolMax != null)
                 _lblVolMax.Location = new Point(_trkVolume.Right - _lblVolMax.Width, _trkVolume.Bottom - Theme.S(5));
 
-            // Speaker Panel sizing (occupies the central area of the screen)
-            int panelY = Theme.S(245);
+            // Custom Audio controls positioning
+            bool customVisible = _cmbSoundType.SelectedIndex == 5;
+            if (_lblCustomAudioText != null)
+                _lblCustomAudioText.Location = new Point(labelLeft, Theme.S(240));
+
+            if (_cmbCustomAudio != null)
+            {
+                _cmbCustomAudio.Location = new Point(inputLeft, Theme.S(237));
+                _cmbCustomAudio.Width = sliderWidth - Theme.S(110);
+            }
+
+            if (_btnRefreshCustom != null && _cmbCustomAudio != null)
+            {
+                _btnRefreshCustom.Location = new Point(_cmbCustomAudio.Right + Theme.S(10), Theme.S(237));
+                _btnRefreshCustom.Size = new Size(Theme.S(100), Theme.S(28));
+            }
+
+            if (_lblCustomAudioInfo != null)
+            {
+                _lblCustomAudioInfo.Location = new Point(inputLeft, Theme.S(272));
+                _lblCustomAudioInfo.Width = sliderWidth;
+            }
+
+            // Speaker Panel sizing
+            int panelY = customVisible ? Theme.S(305) : Theme.S(245);
             int footerSpace = Theme.S(125);
             int panelH = clientH - panelY - footerSpace;
             if (panelH < Theme.S(100)) panelH = Theme.S(100);
@@ -163,15 +199,30 @@ namespace TechTest.Forms
                 "🔊 Quadrada (Square)",
                 "📻 Ruído Branco",
                 "📈 Varredura (Sweep)",
-                "🔔 Bip (Beep)"
+                "🔔 Bip (Beep)",
+                "💾 Áudio do Pendrive (USB)"
             });
             _cmbSoundType.SelectedIndex = 0;
             _cmbSoundType.SelectedIndexChanged += (s, e) =>
             {
-                _activeSoundType = (SoundType)_cmbSoundType.SelectedIndex;
-                // Disable frequency slider for sweep and white noise (irrelevant)
-                bool freqEnabled = _activeSoundType != SoundType.Sweep && _activeSoundType != SoundType.WhiteNoise;
-                _trkFrequency.Enabled = freqEnabled;
+                bool customVisible = _cmbSoundType.SelectedIndex == 5;
+                ShowCustomAudioSection(customVisible);
+
+                if (customVisible)
+                {
+                    _trkFrequency.Enabled = false;
+                    ScanCustomAudio();
+                }
+                else
+                {
+                    _activeSoundType = (SoundType)_cmbSoundType.SelectedIndex;
+                    bool freqEnabled = _activeSoundType != SoundType.Sweep && _activeSoundType != SoundType.WhiteNoise;
+                    _trkFrequency.Enabled = freqEnabled;
+                }
+
+                OnResize(EventArgs.Empty);
+                _speakerPanel.Invalidate();
+
                 if (_isPlaying) RestartTone();
             };
             Controls.Add(_cmbSoundType);
@@ -193,7 +244,7 @@ namespace TechTest.Forms
             {
                 _currentFrequency = _trkFrequency.Value;
                 _lblFreqValue.Text = FormatFrequency(_currentFrequency);
-                if (_isPlaying && _signalGen != null)
+                if (_isPlaying && _signalGen != null && _cmbSoundType.SelectedIndex != 5)
                 {
                     _signalGen.Frequency = _currentFrequency;
                 }
@@ -227,9 +278,16 @@ namespace TechTest.Forms
                 _currentGain = _trkVolume.Value / 100.0f;
                 _lblVolValue.Text = $"{_trkVolume.Value}%";
                 _lblVolValue.ForeColor = Theme.Accent;
-                if (_isPlaying && _signalGen != null)
+                if (_isPlaying)
                 {
-                    _signalGen.Gain = _currentGain;
+                    if (_signalGen != null)
+                    {
+                        _signalGen.Gain = _currentGain;
+                    }
+                    if (_volumeProvider != null)
+                    {
+                        _volumeProvider.Volume = _currentGain;
+                    }
                 }
             };
             Controls.Add(_trkVolume);
@@ -244,6 +302,34 @@ namespace TechTest.Forms
             Controls.Add(_lblVol100);
             _lblVolMax = Theme.CreateLabel("200% (boost)", 530, 218, Theme.FontSmall, Theme.TextMuted);
             Controls.Add(_lblVolMax);
+
+            // === Custom Audio Section ===
+            _lblCustomAudioText = Theme.CreateLabel("Áudio USB:", 30, 240, Theme.FontBody);
+            Controls.Add(_lblCustomAudioText);
+
+            _cmbCustomAudio = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = Theme.BgInput,
+                ForeColor = Theme.TextPrimary,
+                FlatStyle = FlatStyle.Flat,
+                Font = Theme.FontBody
+            };
+            _cmbCustomAudio.SelectedIndexChanged += (s, e) =>
+            {
+                if (_isPlaying) RestartTone();
+            };
+            Controls.Add(_cmbCustomAudio);
+
+            _btnRefreshCustom = Theme.CreateSecondaryButton("🔄 Atualizar", 0, 0, 100, 30);
+            _btnRefreshCustom.Click += (s, e) => ScanCustomAudio();
+            Controls.Add(_btnRefreshCustom);
+
+            _lblCustomAudioInfo = Theme.CreateLabel("", 150, 275, Theme.FontSmall, Theme.TextMuted);
+            Controls.Add(_lblCustomAudioInfo);
+
+            // Initially hide custom audio section
+            ShowCustomAudioSection(false);
 
             // Speaker visualization
             _speakerPanel = new Panel
@@ -288,12 +374,72 @@ namespace TechTest.Forms
             _beepTimer = new System.Windows.Forms.Timer { Interval = 300 };
             _beepTimer.Tick += (s, e) =>
             {
-                if (_signalGen != null && _activeSoundType == SoundType.Beep)
+                if (_signalGen != null && _activeSoundType == SoundType.Beep && _cmbSoundType.SelectedIndex != 5)
                 {
                     _beepMuted = !_beepMuted;
                     _signalGen.Gain = _beepMuted ? 0f : _currentGain;
                 }
             };
+        }
+
+        private void ShowCustomAudioSection(bool visible)
+        {
+            _lblCustomAudioText.Visible = visible;
+            _cmbCustomAudio.Visible = visible;
+            _btnRefreshCustom.Visible = visible;
+            _lblCustomAudioInfo.Visible = visible;
+        }
+
+        private void ScanCustomAudio()
+        {
+            _customAudioFiles.Clear();
+            _cmbCustomAudio.Items.Clear();
+
+            try
+            {
+                var drives = System.IO.DriveInfo.GetDrives();
+                foreach (var drive in drives)
+                {
+                    if (drive.IsReady && (drive.DriveType == System.IO.DriveType.Removable || drive.DriveType == System.IO.DriveType.Fixed))
+                    {
+                        string path = System.IO.Path.Combine(drive.RootDirectory.FullName, "TechTestAudio");
+                        if (System.IO.Directory.Exists(path))
+                        {
+                            var files = System.IO.Directory.GetFiles(path, "*.*", System.IO.SearchOption.TopDirectoryOnly);
+                            foreach (var file in files)
+                            {
+                                string ext = System.IO.Path.GetExtension(file).ToLower();
+                                if (ext == ".mp3" || ext == ".wav" || ext == ".wma" || ext == ".flac" || ext == ".ogg" || ext == ".aac" || ext == ".m4a")
+                                {
+                                    _customAudioFiles.Add(file);
+                                    _cmbCustomAudio.Items.Add(System.IO.Path.GetFileName(file));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _lblStatus.Text = $"⚠️ Erro ao escanear USB: {ex.Message}";
+                _lblStatus.ForeColor = Theme.Warning;
+            }
+
+            if (_customAudioFiles.Count > 0)
+            {
+                _cmbCustomAudio.SelectedIndex = 0;
+                _cmbCustomAudio.Enabled = true;
+                _lblCustomAudioInfo.Text = $"✨ {_customAudioFiles.Count} áudio(s) encontrado(s) no Pendrive!";
+                _lblCustomAudioInfo.ForeColor = Theme.Success;
+            }
+            else
+            {
+                _cmbCustomAudio.Items.Add("Nenhum áudio detectado em [Pendrive]:\\TechTestAudio");
+                _cmbCustomAudio.SelectedIndex = 0;
+                _cmbCustomAudio.Enabled = false;
+                _lblCustomAudioInfo.Text = "📁 Crie a pasta 'TechTestAudio' na raiz do pendrive e coloque arquivos MP3/WAV.";
+                _lblCustomAudioInfo.ForeColor = Theme.TextMuted;
+            }
         }
 
         private string FormatFrequency(float freq)
@@ -310,71 +456,138 @@ namespace TechTest.Forms
             {
                 _activeChannel = channel;
 
-                // Create the signal generator directly so we can modify it in real-time
-                _signalGen = new SignalGenerator(44100, 1)
+                if (_cmbSoundType.SelectedIndex == 5)
                 {
-                    Frequency = _currentFrequency,
-                    Gain = _currentGain
-                };
+                    // Custom audio mode!
+                    if (_customAudioFiles == null || _customAudioFiles.Count == 0 || _cmbCustomAudio.SelectedIndex < 0 || _cmbCustomAudio.SelectedIndex >= _customAudioFiles.Count)
+                    {
+                        throw new Exception("Nenhum arquivo de áudio selecionado ou disponível.");
+                    }
 
-                // Set type based on selection
-                switch (_activeSoundType)
-                {
-                    case SoundType.Sine:
-                        _signalGen.Type = SignalGeneratorType.Sin;
-                        break;
-                    case SoundType.Square:
-                        _signalGen.Type = SignalGeneratorType.Square;
-                        break;
-                    case SoundType.WhiteNoise:
-                        _signalGen.Type = SignalGeneratorType.White;
-                        break;
-                    case SoundType.Sweep:
-                        _signalGen.Type = SignalGeneratorType.Sweep;
-                        _signalGen.Frequency = 100;
-                        _signalGen.FrequencyEnd = 10000;
-                        _signalGen.SweepLengthSecs = 5;
-                        break;
-                    case SoundType.Beep:
-                        _signalGen.Type = SignalGeneratorType.Sin;
-                        break;
+                    string filePath = _customAudioFiles[_cmbCustomAudio.SelectedIndex];
+                    _customAudioReader = new AudioFileReader(filePath);
+
+                    ISampleProvider sampleProvider = _customAudioReader;
+                    if (_customAudioReader.WaveFormat.Channels == 1)
+                    {
+                        var monoToStereo = new MonoToStereoSampleProvider(_customAudioReader);
+                        switch (channel)
+                        {
+                            case AudioChannel.Left: monoToStereo.LeftVolume = 1f; monoToStereo.RightVolume = 0f; break;
+                            case AudioChannel.Right: monoToStereo.LeftVolume = 0f; monoToStereo.RightVolume = 1f; break;
+                            case AudioChannel.Both: monoToStereo.LeftVolume = 1f; monoToStereo.RightVolume = 1f; break;
+                        }
+                        sampleProvider = monoToStereo;
+                    }
+                    else if (_customAudioReader.WaveFormat.Channels == 2)
+                    {
+                        var stereoVol = new ChannelVolumeSampleProvider(_customAudioReader);
+                        switch (channel)
+                        {
+                            case AudioChannel.Left: stereoVol.LeftVolume = 1f; stereoVol.RightVolume = 0f; break;
+                            case AudioChannel.Right: stereoVol.LeftVolume = 0f; stereoVol.RightVolume = 1f; break;
+                            case AudioChannel.Both: stereoVol.LeftVolume = 1f; stereoVol.RightVolume = 1f; break;
+                        }
+                        sampleProvider = stereoVol;
+                    }
+
+                    _volumeProvider = new VolumeSampleProvider(sampleProvider) { Volume = _currentGain };
+
+                    _waveOut = new WaveOutEvent();
+                    _waveOut.Init(_volumeProvider);
+
+                    _waveOut.PlaybackStopped += (s, ev) =>
+                    {
+                        if (this.IsDisposed) return;
+                        try
+                        {
+                            this.BeginInvoke((MethodInvoker)delegate
+                            {
+                                if (_isPlaying && _cmbSoundType.SelectedIndex == 5)
+                                {
+                                    StopTone();
+                                }
+                            });
+                        }
+                        catch { }
+                    };
+
+                    _waveOut.Play();
+                    _isPlaying = true;
+                    _animTimer.Start();
+
+                    string chName = channel == AudioChannel.Left ? "ESQUERDO" :
+                                    channel == AudioChannel.Right ? "DIREITO" : "AMBOS";
+                    string fileName = System.IO.Path.GetFileNameWithoutExtension(filePath);
+                    _lblStatus.Text = $"▶ [USB] {fileName} — Vol {_trkVolume.Value}% — Canal {chName}";
+                    _lblStatus.ForeColor = Theme.Success;
                 }
-
-                // Create stereo output with channel routing
-                var stereo = new MonoToStereoSampleProvider(_signalGen);
-                switch (channel)
+                else
                 {
-                    case AudioChannel.Left:
-                        stereo.RightVolume = 0f;
-                        stereo.LeftVolume = 1f;
-                        break;
-                    case AudioChannel.Right:
-                        stereo.LeftVolume = 0f;
-                        stereo.RightVolume = 1f;
-                        break;
-                    case AudioChannel.Both:
-                        stereo.LeftVolume = 1f;
-                        stereo.RightVolume = 1f;
-                        break;
+                    // Standard tone mode
+                    _signalGen = new SignalGenerator(44100, 1)
+                    {
+                        Frequency = _currentFrequency,
+                        Gain = _currentGain
+                    };
+
+                    switch (_activeSoundType)
+                    {
+                        case SoundType.Sine:
+                            _signalGen.Type = SignalGeneratorType.Sin;
+                            break;
+                        case SoundType.Square:
+                            _signalGen.Type = SignalGeneratorType.Square;
+                            break;
+                        case SoundType.WhiteNoise:
+                            _signalGen.Type = SignalGeneratorType.White;
+                            break;
+                        case SoundType.Sweep:
+                            _signalGen.Type = SignalGeneratorType.Sweep;
+                            _signalGen.Frequency = 100;
+                            _signalGen.FrequencyEnd = 10000;
+                            _signalGen.SweepLengthSecs = 5;
+                            break;
+                        case SoundType.Beep:
+                            _signalGen.Type = SignalGeneratorType.Sin;
+                            break;
+                    }
+
+                    var stereo = new MonoToStereoSampleProvider(_signalGen);
+                    switch (channel)
+                    {
+                        case AudioChannel.Left:
+                            stereo.RightVolume = 0f;
+                            stereo.LeftVolume = 1f;
+                            break;
+                        case AudioChannel.Right:
+                            stereo.LeftVolume = 0f;
+                            stereo.RightVolume = 1f;
+                            break;
+                        case AudioChannel.Both:
+                            stereo.LeftVolume = 1f;
+                            stereo.RightVolume = 1f;
+                            break;
+                    }
+
+                    _waveOut = new WaveOutEvent();
+                    _waveOut.Init(stereo);
+                    _waveOut.Play();
+                    _isPlaying = true;
+                    _animTimer.Start();
+
+                    if (_activeSoundType == SoundType.Beep)
+                    {
+                        _beepMuted = false;
+                        _beepTimer.Start();
+                    }
+
+                    string chName = channel == AudioChannel.Left ? "ESQUERDO" :
+                                    channel == AudioChannel.Right ? "DIREITO" : "AMBOS";
+                    string typeName = _cmbSoundType.SelectedItem?.ToString() ?? "Senoidal";
+                    _lblStatus.Text = $"▶ {typeName} — {FormatFrequency(_currentFrequency)} — Vol {_trkVolume.Value}% — Canal {chName}";
+                    _lblStatus.ForeColor = Theme.Success;
                 }
-
-                _waveOut = new WaveOutEvent();
-                _waveOut.Init(stereo);
-                _waveOut.Play();
-                _isPlaying = true;
-                _animTimer.Start();
-
-                if (_activeSoundType == SoundType.Beep)
-                {
-                    _beepMuted = false;
-                    _beepTimer.Start();
-                }
-
-                string chName = channel == AudioChannel.Left ? "ESQUERDO" :
-                                channel == AudioChannel.Right ? "DIREITO" : "AMBOS";
-                string typeName = _cmbSoundType.SelectedItem?.ToString() ?? "Senoidal";
-                _lblStatus.Text = $"▶ {typeName} — {FormatFrequency(_currentFrequency)} — Vol {_trkVolume.Value}% — Canal {chName}";
-                _lblStatus.ForeColor = Theme.Success;
             }
             catch (Exception ex)
             {
@@ -401,8 +614,14 @@ namespace TechTest.Forms
                 _waveOut?.Dispose();
             }
             catch { }
+            try
+            {
+                _customAudioReader?.Dispose();
+            }
+            catch { }
             _waveOut = null;
-            _signalGen = null;
+            _customAudioReader = null;
+            _volumeProvider = null;
             _lblStatus.Text = "⏸ Parado";
             _lblStatus.ForeColor = Theme.TextSecondary;
             _speakerPanel.Invalidate();
@@ -443,13 +662,20 @@ namespace TechTest.Forms
             // Frequency display inside "screen"
             if (_isPlaying)
             {
-                string freqText = FormatFrequency(_currentFrequency);
-                using (var font = new Font("Segoe UI", Theme.S(14f), FontStyle.Bold))
+                string displayText = FormatFrequency(_currentFrequency);
+                if (_cmbSoundType.SelectedIndex == 5 && _customAudioFiles.Count > 0 && _cmbCustomAudio.SelectedIndex >= 0)
                 {
-                    var sz = g.MeasureString(freqText, font);
+                    string filePath = _customAudioFiles[_cmbCustomAudio.SelectedIndex];
+                    displayText = "🎵 " + System.IO.Path.GetFileNameWithoutExtension(filePath);
+                }
+
+                float fontSize = displayText.Length > 20 ? 9f : displayText.Length > 12 ? 11f : 14f;
+                using (var font = new Font("Segoe UI", Theme.S(fontSize), FontStyle.Bold))
+                {
+                    var sz = g.MeasureString(displayText, font);
                     float tx = screenRect.X + (screenRect.Width - sz.Width) / 2;
                     float ty = screenRect.Y + (screenRect.Height - sz.Height) / 2;
-                    g.DrawString(freqText, font, new SolidBrush(Theme.Accent), tx, ty);
+                    g.DrawString(displayText, font, new SolidBrush(Theme.Accent), tx, ty);
                 }
             }
             else
@@ -528,6 +754,35 @@ namespace TechTest.Forms
         {
             StopTone();
             base.OnFormClosing(e);
+        }
+    }
+
+    public class ChannelVolumeSampleProvider : ISampleProvider
+    {
+        private readonly ISampleProvider _source;
+        public float LeftVolume { get; set; } = 1.0f;
+        public float RightVolume { get; set; } = 1.0f;
+
+        public ChannelVolumeSampleProvider(ISampleProvider source)
+        {
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+        }
+
+        public WaveFormat WaveFormat => _source.WaveFormat;
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            int read = _source.Read(buffer, offset, count);
+            int channels = WaveFormat.Channels;
+            if (channels == 2)
+            {
+                for (int i = 0; i < read; i += 2)
+                {
+                    buffer[offset + i] *= LeftVolume;
+                    buffer[offset + i + 1] *= RightVolume;
+                }
+            }
+            return read;
         }
     }
 }
