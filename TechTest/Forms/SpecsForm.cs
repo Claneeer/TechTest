@@ -283,64 +283,83 @@ namespace TechTest.Forms
                     {
                         foreach (ManagementObject obj in searcher.Get())
                         {
-                            totalSlots = Convert.ToInt32(obj["MemoryDevices"] ?? 0);
-                            break;
+                            totalSlots += Convert.ToInt32(obj["MemoryDevices"] ?? 0);
                         }
                     }
                 }
                 catch { }
 
-                // Correct RAM slots using Motherboard (BaseBoard) heuristic to bypass BIOS/SMBIOS generic firmware limits
+                // Robust RAM slot correction — BIOS/SMBIOS firmware often reports incorrect slot counts
+                // Strategy: 1) Detect chassis type (laptop=2 max), 2) Board form factor, 3) Chipset, 4) Sanity ratio
                 try
                 {
-                    string boardMfr = "";
-                    string boardModel = "";
-                    using (var searcher = new ManagementObjectSearcher("SELECT Manufacturer, Product FROM Win32_BaseBoard"))
+                    // Step 1: Detect if laptop/portable — laptops physically have max 2 RAM slots
+                    bool isLaptop = false;
+                    try
                     {
-                        foreach (ManagementObject obj in searcher.Get())
+                        using (var searcher = new ManagementObjectSearcher("SELECT ChassisTypes FROM Win32_SystemEnclosure"))
                         {
-                            boardMfr = obj["Manufacturer"]?.ToString() ?? "";
-                            boardModel = obj["Product"]?.ToString() ?? "";
-                            break;
-                        }
-                    }
-
-                    if (!string.IsNullOrEmpty(boardModel) && totalSlots > 2)
-                    {
-                        string boardModelUpper = boardModel.ToUpperInvariant();
-                        
-                        // Chipsets that physically ONLY support 2 slots max:
-                        // H610, H510, H410, H310, H110, H81, H61, A320
-                        string[] twoSlotChipsets = new string[]
-                        {
-                            "H610", "H510", "H410", "H310", "H110", "H81", "H61", "A320"
-                        };
-
-                        bool matchFound = false;
-                        foreach (var chipset in twoSlotChipsets)
-                        {
-                            if (boardModelUpper.Contains(chipset))
+                            foreach (ManagementObject obj in searcher.Get())
                             {
-                                totalSlots = 2;
-                                matchFound = true;
+                                var chassisTypes = obj["ChassisTypes"] as ushort[];
+                                if (chassisTypes != null)
+                                {
+                                    foreach (var ct in chassisTypes)
+                                    {
+                                        // 8=Portable, 9=Laptop, 10=Notebook, 14=Sub Notebook, 31=Convertible, 32=Detachable
+                                        if (ct == 8 || ct == 9 || ct == 10 || ct == 14 || ct == 31 || ct == 32)
+                                        {
+                                            isLaptop = true;
+                                            break;
+                                        }
+                                    }
+                                }
                                 break;
                             }
                         }
+                    }
+                    catch { }
 
-                        if (!matchFound)
+                    if (isLaptop && totalSlots > 2)
+                    {
+                        totalSlots = 2;
+                    }
+
+                    // Step 2: Check motherboard model for form factor and chipset hints
+                    if (totalSlots > 2)
+                    {
+                        string boardModel = "";
+                        try
                         {
-                            // Specific popular 2-slot models/keywords for chipsets that can have 4 slots (like A520, B450, B550, etc.)
-                            string[] twoSlotKeywords = new string[]
+                            using (var searcher = new ManagementObjectSearcher("SELECT Product FROM Win32_BaseBoard"))
                             {
-                                "-K", "-HDV", "-HVS", "-DX", "DXV4", "A PRO", "-A PRO", "PRO-VH", "MCR-A520M"
-                            };
-
-                            foreach (var keyword in twoSlotKeywords)
-                            {
-                                if (boardModelUpper.Contains(keyword))
+                                foreach (ManagementObject obj in searcher.Get())
                                 {
-                                    totalSlots = 2;
+                                    boardModel = obj["Product"]?.ToString()?.Trim() ?? "";
                                     break;
+                                }
+                            }
+                        }
+                        catch { }
+
+                        if (!string.IsNullOrEmpty(boardModel))
+                        {
+                            string model = boardModel.ToUpperInvariant();
+
+                            // 2a: Chipsets that physically support max 2 DIMM slots
+                            string[] twoSlotChipsets = { "H610", "H510", "H410", "H310", "H110", "H81", "H61", "A320" };
+                            foreach (var chipset in twoSlotChipsets)
+                            {
+                                if (model.Contains(chipset)) { totalSlots = 2; break; }
+                            }
+
+                            // 2b: Board model suffixes/keywords that indicate compact 2-slot designs
+                            if (totalSlots > 2)
+                            {
+                                string[] twoSlotKeywords = { "-K", "-HDV", "-HVS", "-DX", "DXV4", "A PRO", "-A PRO", "PRO-VH", "MCR-A520M", "-M-ITX", "MINI-ITX" };
+                                foreach (var kw in twoSlotKeywords)
+                                {
+                                    if (model.Contains(kw)) { totalSlots = 2; break; }
                                 }
                             }
                         }
@@ -378,6 +397,15 @@ namespace TechTest.Forms
                 catch { }
 
                 specs.RamOccupiedSlots = specs.RamSlots.Count;
+
+                // Step 3 (final sanity): If firmware reports way more slots than physically occupied,
+                // it's almost certainly BIOS misinformation (e.g., 8 reported but only 2 sticks installed).
+                // Consumer boards never have more than 4 slots. If total > 2x occupied, cap it.
+                if (totalSlots > specs.RamOccupiedSlots * 2 && specs.RamOccupiedSlots > 0)
+                {
+                    totalSlots = specs.RamOccupiedSlots;
+                }
+
                 specs.RamTotalSlots = Math.Max(totalSlots, specs.RamOccupiedSlots);
 
                 if (ramBytes > 0)
