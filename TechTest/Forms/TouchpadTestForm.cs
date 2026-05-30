@@ -33,6 +33,11 @@ namespace TechTest.Forms
         private int _totalZones = GridCols * GridRows;
         private int _visitedCount = 0;
 
+        // Pointer Lock & Absolute coordinates tracking
+        private bool _isPointerLocked = false;
+        private Point _lockPoint = Point.Empty;
+        private float _rawTouchPos = 1500f; // Start in the center of the 0 to 3000 range
+
         // Fields for responsive layout positioning
         private Label _lblTitle, _lblDesc, _lblChecklistTitle, _lblLegend;
 
@@ -42,6 +47,7 @@ namespace TechTest.Forms
             this.FormBorderStyle = FormBorderStyle.Sizable;
             this.MaximizeBox = true;
             this.MinimumSize = new Size(Theme.S(750), Theme.S(500));
+            this.KeyPreview = true; // Required to capture the ESC key globally
             BuildUI();
 
             // Set initial layout placement
@@ -197,7 +203,7 @@ namespace TechTest.Forms
             _canvas.MouseWheel += Canvas_MouseWheel;
             _canvas.MouseLeave += (s, e) =>
             {
-                if (_radGridMode != null && _radGridMode.Checked)
+                if (_radGridMode != null && _radGridMode.Checked && !_isPointerLocked)
                 {
                     _currentZone = new Point(-1, -1);
                     _canvas.Invalidate();
@@ -279,29 +285,89 @@ namespace TechTest.Forms
             if (gridMode)
             {
                 _lblLegend.Text = "🟢 Quadrado visitado  🔵 Posição atual";
+                _lblDesc.Text = "Modo Grade: Clique no canvas para ocultar o cursor e testar a posição absoluta (0-3000). Pressione ESC para sair.";
+                _lblDesc.ForeColor = Theme.Accent;
             }
             else
             {
+                UnlockPointer();
                 _lblLegend.Text = "🟢 Clique esquerdo  🔵 Clique direito  ⬜ Arraste";
+                _lblDesc.Text = "Use o touchpad para realizar cada ação. O canvas registra seus movimentos.";
+                _lblDesc.ForeColor = Theme.TextSecondary;
             }
 
             _currentZone = new Point(-1, -1);
             _canvas.Invalidate();
         }
 
+        private void LockPointer()
+        {
+            if (_isPointerLocked) return;
+
+            _isPointerLocked = true;
+            Cursor.Hide();
+
+            // Calculate center of canvas in screen coordinates
+            _lockPoint = _canvas.PointToScreen(new Point(_canvas.Width / 2, _canvas.Height / 2));
+            Cursor.Position = _lockPoint;
+
+            _lblGridProgress.Text = "🔒 Cursor Oculto e Travado! Pressione ESC para sair.";
+            _lblGridProgress.ForeColor = Theme.Accent;
+        }
+
+        private void UnlockPointer()
+        {
+            if (!_isPointerLocked) return;
+
+            _isPointerLocked = false;
+            Cursor.Show();
+
+            _currentZone = new Point(-1, -1);
+            _canvas.Invalidate();
+
+            UpdateGridProgress();
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+            if (e.KeyCode == Keys.Escape)
+            {
+                if (_isPointerLocked)
+                {
+                    UnlockPointer();
+                    e.Handled = true;
+                }
+            }
+        }
+
+        protected override void OnDeactivate(EventArgs e)
+        {
+            base.OnDeactivate(e);
+            UnlockPointer(); // Make sure cursor is restored if app loses focus
+        }
+
         private void UpdateGridProgress()
         {
             if (_lblGridProgress != null)
             {
-                _lblGridProgress.Text = $"{_visitedCount} / {_totalZones} zonas tocadas";
-                if (_visitedCount >= _totalZones)
+                if (_isPointerLocked)
                 {
-                    _lblGridProgress.Text = $"✅ {_totalZones} / {_totalZones} — Touchpad 100% funcional!";
-                    _lblGridProgress.ForeColor = Theme.Success;
+                    _lblGridProgress.Text = $"🔒 Pos: {(int)_rawTouchPos} | {_visitedCount} / {_totalZones} zonas tocadas (ESC p/ sair)";
+                    _lblGridProgress.ForeColor = Theme.Accent;
                 }
                 else
                 {
-                    _lblGridProgress.ForeColor = Theme.TextSecondary;
+                    _lblGridProgress.Text = $"{_visitedCount} / {_totalZones} zonas tocadas";
+                    if (_visitedCount >= _totalZones)
+                    {
+                        _lblGridProgress.Text = $"✅ {_totalZones} / {_totalZones} — Touchpad 100% funcional!";
+                        _lblGridProgress.ForeColor = Theme.Success;
+                    }
+                    else
+                    {
+                        _lblGridProgress.ForeColor = Theme.TextSecondary;
+                    }
                 }
             }
         }
@@ -332,11 +398,11 @@ namespace TechTest.Forms
                         Color bgColor = Theme.BgDark;
                         if (_currentZone.X == col && _currentZone.Y == row)
                         {
-                            bgColor = Color.FromArgb(50, Theme.Accent); // highlight current zone with semi-transparent accent (blue)
+                            bgColor = Color.FromArgb(50, Theme.Accent); // Highlight current zone (blue)
                         }
                         else if (_visitedZones[col, row])
                         {
-                            bgColor = Color.FromArgb(40, Theme.Success); // semi-transparent success (green)
+                            bgColor = Color.FromArgb(40, Theme.Success); // Visited zone (green)
                         }
 
                         using (var brush = new SolidBrush(bgColor))
@@ -348,12 +414,12 @@ namespace TechTest.Forms
 
                         if (_currentZone.X == col && _currentZone.Y == row)
                         {
-                            borderColor = Theme.Accent; // current zone border
+                            borderColor = Theme.Accent;
                             borderWidth = 2.5f;
                         }
                         else if (_visitedZones[col, row])
                         {
-                            borderColor = Theme.Success; // visited zone border
+                            borderColor = Theme.Success;
                             borderWidth = 1.5f;
                         }
 
@@ -378,38 +444,74 @@ namespace TechTest.Forms
 
             if (_radGridMode != null && _radGridMode.Checked)
             {
-                // Grid Mode logic
-                int w = _canvas.Width;
-                int h = _canvas.Height;
-                if (w > 0 && h > 0)
+                if (_isPointerLocked)
                 {
-                    float cellW = (float)w / GridCols;
-                    float cellH = (float)h / GridRows;
+                    // Calculate relative movements from lock point
+                    Point currentScreenPos = Cursor.Position;
+                    int deltaX = currentScreenPos.X - _lockPoint.X;
+                    int deltaY = currentScreenPos.Y - _lockPoint.Y;
 
-                    int col = (int)(e.X / cellW);
-                    int row = (int)(e.Y / cellH);
-
-                    // Clamp to grid limits
-                    col = Math.Max(0, Math.Min(col, GridCols - 1));
-                    row = Math.Max(0, Math.Min(row, GridRows - 1));
-
-                    Point newZone = new Point(col, row);
-                    if (newZone != _currentZone)
+                    if (deltaX != 0 || deltaY != 0)
                     {
-                        _currentZone = newZone;
+                        // Accumulate movement into absolute 1D touch position (0 to 3000)
+                        float sensitivity = 1.5f;
+                        _rawTouchPos += (deltaX + deltaY) * sensitivity;
 
-                        if (!_visitedZones[col, row])
+                        // Clamp between 0 and 3000
+                        _rawTouchPos = Math.Max(0f, Math.Min(3000f, _rawTouchPos));
+
+                        // Force the pointer back to the lock point to maintain block
+                        Cursor.Position = _lockPoint;
+
+                        // Map 0..3000 range to 80 cells (each has size 37.5)
+                        int cellIndex = (int)(_rawTouchPos / 37.5f);
+                        cellIndex = Math.Max(0, Math.Min(79, cellIndex));
+
+                        int col = cellIndex % 10;
+                        int row = cellIndex / 10;
+
+                        Point newZone = new Point(col, row);
+                        if (newZone != _currentZone)
                         {
-                            _visitedZones[col, row] = true;
-                            _visitedCount = 0;
-                            for (int c = 0; c < GridCols; c++)
-                                for (int r = 0; r < GridRows; r++)
-                                    if (_visitedZones[c, r]) _visitedCount++;
+                            _currentZone = newZone;
 
-                            UpdateGridProgress();
+                            if (!_visitedZones[col, row])
+                            {
+                                _visitedZones[col, row] = true;
+                                _visitedCount = 0;
+                                for (int c = 0; c < GridCols; c++)
+                                    for (int r = 0; r < GridRows; r++)
+                                        if (_visitedZones[c, r]) _visitedCount++;
+
+                                UpdateGridProgress();
+                            }
                         }
 
                         _canvas.Invalidate();
+                    }
+                }
+                else
+                {
+                    // Standard hover highlighted cell if not locked
+                    int w = _canvas.Width;
+                    int h = _canvas.Height;
+                    if (w > 0 && h > 0)
+                    {
+                        float cellW = (float)w / GridCols;
+                        float cellH = (float)h / GridRows;
+
+                        int col = (int)(e.X / cellW);
+                        int row = (int)(e.Y / cellH);
+
+                        col = Math.Max(0, Math.Min(col, GridCols - 1));
+                        row = Math.Max(0, Math.Min(row, GridRows - 1));
+
+                        Point newZone = new Point(col, row);
+                        if (newZone != _currentZone)
+                        {
+                            _currentZone = newZone;
+                            _canvas.Invalidate();
+                        }
                     }
                 }
             }
@@ -436,22 +538,37 @@ namespace TechTest.Forms
 
         private void Canvas_MouseDown(object sender, MouseEventArgs e)
         {
-            if (e.Button == MouseButtons.Left)
+            if (_radGridMode != null && _radGridMode.Checked)
             {
-                CompleteCheck("leftclick", _lblLeftClick);
-                if (_radGridMode == null || !_radGridMode.Checked)
+                // Clicking in Grid mode registers clicks and toggles pointer lock/hiding
+                if (!_isPointerLocked)
                 {
+                    LockPointer();
+                }
+                
+                if (e.Button == MouseButtons.Left)
+                {
+                    CompleteCheck("leftclick", _lblLeftClick);
+                }
+                else if (e.Button == MouseButtons.Right)
+                {
+                    CompleteCheck("rightclick", _lblRightClick);
+                }
+            }
+            else
+            {
+                // Free Draw Mode logic
+                if (e.Button == MouseButtons.Left)
+                {
+                    CompleteCheck("leftclick", _lblLeftClick);
                     using (var brush = new SolidBrush(Theme.Success))
                         _canvasGraphics.FillEllipse(brush, e.X - 6, e.Y - 6, 12, 12);
                     _isDragging = true;
                     _lastPoint = e.Location;
                 }
-            }
-            else if (e.Button == MouseButtons.Right)
-            {
-                CompleteCheck("rightclick", _lblRightClick);
-                if (_radGridMode == null || !_radGridMode.Checked)
+                else if (e.Button == MouseButtons.Right)
                 {
+                    CompleteCheck("rightclick", _lblRightClick);
                     using (var brush = new SolidBrush(Theme.Accent))
                         _canvasGraphics.FillEllipse(brush, e.X - 6, e.Y - 6, 12, 12);
                 }
@@ -461,8 +578,11 @@ namespace TechTest.Forms
 
         private void Canvas_MouseUp(object sender, MouseEventArgs e)
         {
-            _isDragging = false;
-            _lastPoint = Point.Empty;
+            if (_radFreeDraw.Checked)
+            {
+                _isDragging = false;
+                _lastPoint = Point.Empty;
+            }
         }
 
         private void Canvas_MouseWheel(object sender, MouseEventArgs e)
@@ -470,7 +590,7 @@ namespace TechTest.Forms
             if (e.Delta > 0)
             {
                 CompleteCheck("scrollup", _lblScrollUp);
-                if (_radGridMode == null || !_radGridMode.Checked)
+                if (_radFreeDraw.Checked)
                 {
                     using (var brush = new SolidBrush(Theme.Warning))
                         _canvasGraphics.FillPolygon(brush, new Point[]
@@ -484,7 +604,7 @@ namespace TechTest.Forms
             else
             {
                 CompleteCheck("scrolldown", _lblScrollDown);
-                if (_radGridMode == null || !_radGridMode.Checked)
+                if (_radFreeDraw.Checked)
                 {
                     using (var brush = new SolidBrush(Theme.Warning))
                         g_draw_polygon(brush, e.X, e.Y);
@@ -511,6 +631,8 @@ namespace TechTest.Forms
             Array.Clear(_visitedZones, 0, _visitedZones.Length);
             _visitedCount = 0;
             _currentZone = new Point(-1, -1);
+            _rawTouchPos = 1500f; // Reset raw position
+            
             UpdateGridProgress();
 
             _canvas.Invalidate();
@@ -528,6 +650,7 @@ namespace TechTest.Forms
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            UnlockPointer(); // Restore normal cursor
             _canvasGraphics?.Dispose();
             _canvasBitmap?.Dispose();
             base.OnFormClosing(e);
