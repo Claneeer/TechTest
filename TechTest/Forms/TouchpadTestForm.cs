@@ -25,18 +25,20 @@ namespace TechTest.Forms
         private Label _lblModeText;
         private Label _lblGridProgress;
 
-        // Grid parameters (10 columns by 8 rows = 80 zones)
-        private const int GridCols = 10;
-        private const int GridRows = 8;
+        // Grid parameters: 8 columns by 10 rows (8x10) = 80 zones
+        private const int GridCols = 8;
+        private const int GridRows = 10;
         private bool[,] _visitedZones = new bool[GridCols, GridRows];
         private Point _currentZone = new Point(-1, -1);
         private int _totalZones = GridCols * GridRows;
         private int _visitedCount = 0;
 
-        // Pointer Lock & Absolute coordinates tracking
+        // Pointer Lock & 2D Absolute Coordinates mapping
+        // X ranges from 0 to 3000, Y ranges from 0 to 2000
         private bool _isPointerLocked = false;
         private Point _lockPoint = Point.Empty;
-        private float _rawTouchPos = 1500f; // Start in the center of the 0 to 3000 range
+        private float _rawTouchX = 1500f; // Initialized in the center (0 to 3000)
+        private float _rawTouchY = 1000f; // Initialized in the center (0 to 2000)
 
         // Fields for responsive layout positioning
         private Label _lblTitle, _lblDesc, _lblChecklistTitle, _lblLegend;
@@ -285,7 +287,7 @@ namespace TechTest.Forms
             if (gridMode)
             {
                 _lblLegend.Text = "🟢 Quadrado visitado  🔵 Posição atual";
-                _lblDesc.Text = "Modo Grade: Clique no canvas para ocultar o cursor e testar a posição absoluta (0-3000). Pressione ESC para sair.";
+                _lblDesc.Text = "Modo Grade: Clique no canvas para ocultar o cursor e testar a posição absoluta (0-3000 x 0-2000). Pressione ESC para sair.";
                 _lblDesc.ForeColor = Theme.Accent;
             }
             else
@@ -353,7 +355,7 @@ namespace TechTest.Forms
             {
                 if (_isPointerLocked)
                 {
-                    _lblGridProgress.Text = $"🔒 Pos: {(int)_rawTouchPos} | {_visitedCount} / {_totalZones} zonas tocadas (ESC p/ sair)";
+                    _lblGridProgress.Text = $"🔒 X:{(int)_rawTouchX} Y:{(int)_rawTouchY} | {_visitedCount} / {_totalZones} zonas (ESC p/ sair)";
                     _lblGridProgress.ForeColor = Theme.Accent;
                 }
                 else
@@ -379,7 +381,7 @@ namespace TechTest.Forms
 
             if (_radGridMode != null && _radGridMode.Checked)
             {
-                // Draw Grid Mode (10 cols x 8 rows)
+                // Draw Grid Mode (8 cols x 10 rows)
                 int w = _canvas.Width;
                 int h = _canvas.Height;
                 float cellW = (float)w / GridCols;
@@ -453,22 +455,28 @@ namespace TechTest.Forms
 
                     if (deltaX != 0 || deltaY != 0)
                     {
-                        // Accumulate movement into absolute 1D touch position (0 to 3000)
-                        float sensitivity = 1.5f;
-                        _rawTouchPos += (deltaX + deltaY) * sensitivity;
+                        // Accumulate movement into absolute 2D touchpad coordinates
+                        // X range: 0 to 3000, Y range: 0 to 2000
+                        float sensitivity = 1.8f;
+                        _rawTouchX += deltaX * sensitivity;
+                        _rawTouchY += deltaY * sensitivity;
 
-                        // Clamp between 0 and 3000
-                        _rawTouchPos = Math.Max(0f, Math.Min(3000f, _rawTouchPos));
+                        // Clamp values to defined touchpad ranges
+                        _rawTouchX = Math.Max(0f, Math.Min(3000f, _rawTouchX));
+                        _rawTouchY = Math.Max(0f, Math.Min(2000f, _rawTouchY));
 
                         // Force the pointer back to the lock point to maintain block
                         Cursor.Position = _lockPoint;
 
-                        // Map 0..3000 range to 80 cells (each has size 37.5)
-                        int cellIndex = (int)(_rawTouchPos / 37.5f);
-                        cellIndex = Math.Max(0, Math.Min(79, cellIndex));
+                        // Mapeamento Matemático (8 colunas por 10 linhas):
+                        // Largura X (0..3000) dividida por 8 colunas -> largura do quadrado = 375
+                        // Altura Y (0..2000) dividida por 10 linhas -> altura do quadrado = 200
+                        int col = (int)(_rawTouchX / 375f);
+                        int row = (int)(_rawTouchY / 200f);
 
-                        int col = cellIndex % 10;
-                        int row = cellIndex / 10;
+                        // Clamp mapped column and row indexes
+                        col = Math.Max(0, Math.Min(GridCols - 1, col));
+                        row = Math.Max(0, Math.Min(GridRows - 1, row));
 
                         Point newZone = new Point(col, row);
                         if (newZone != _currentZone)
@@ -545,7 +553,7 @@ namespace TechTest.Forms
                 {
                     LockPointer();
                 }
-                
+
                 if (e.Button == MouseButtons.Left)
                 {
                     CompleteCheck("leftclick", _lblLeftClick);
@@ -631,8 +639,9 @@ namespace TechTest.Forms
             Array.Clear(_visitedZones, 0, _visitedZones.Length);
             _visitedCount = 0;
             _currentZone = new Point(-1, -1);
-            _rawTouchPos = 1500f; // Reset raw position
-            
+            _rawTouchX = 1500f; // Reset raw coordinates
+            _rawTouchY = 1000f;
+
             UpdateGridProgress();
 
             _canvas.Invalidate();
