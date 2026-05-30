@@ -25,9 +25,9 @@ namespace TechTest.Forms
         private Label _lblModeText;
         private Label _lblGridProgress;
 
-        // Grid parameters: 8 columns by 10 rows (8x10) = 80 zones
-        private const int GridCols = 8;
-        private const int GridRows = 10;
+        // Grid parameters: 10 columns by 8 rows (10x8) = 80 zones
+        private const int GridCols = 10;
+        private const int GridRows = 8;
         private bool[,] _visitedZones = new bool[GridCols, GridRows];
         private Point _currentZone = new Point(-1, -1);
         private int _totalZones = GridCols * GridRows;
@@ -39,6 +39,15 @@ namespace TechTest.Forms
         private Point _lockPoint = Point.Empty;
         private float _rawTouchX = 1500f; // Initialized in the center (0 to 3000)
         private float _rawTouchY = 1000f; // Initialized in the center (0 to 2000)
+
+        // Math Mapping visualizer fields
+        private GroupBox _grpMathInfo;
+        private Label _lblMathDriverRes;
+        private Label _lblMathGridSize;
+        private Label _lblMathFormulaX;
+        private Label _lblMathFormulaY;
+        private Label _lblMathCurrentRaw;
+        private Label _lblMathMappingResult;
 
         // Fields for responsive layout positioning
         private Label _lblTitle, _lblDesc, _lblChecklistTitle, _lblLegend;
@@ -132,26 +141,42 @@ namespace TechTest.Forms
             if (_lblChecklistTitle != null)
                 _lblChecklistTitle.Location = new Point(rightX, Theme.S(115));
 
-            int checkY = Theme.S(150);
-            if (_lblMoved != null) { _lblMoved.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
-            if (_lblLeftClick != null) { _lblLeftClick.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
-            if (_lblRightClick != null) { _lblRightClick.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
-            if (_lblScrollUp != null) { _lblScrollUp.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
-            if (_lblScrollDown != null) { _lblScrollDown.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
-            if (_lblDrag != null) { _lblDrag.Location = new Point(rightX, checkY); checkY += Theme.S(35); }
+            int checkY = Theme.S(140);
+            int step = Theme.S(26);
+            if (_lblMoved != null) { _lblMoved.Location = new Point(rightX, checkY); checkY += step; }
+            if (_lblLeftClick != null) { _lblLeftClick.Location = new Point(rightX, checkY); checkY += step; }
+            if (_lblRightClick != null) { _lblRightClick.Location = new Point(rightX, checkY); checkY += step; }
+            if (_lblScrollUp != null) { _lblScrollUp.Location = new Point(rightX, checkY); checkY += step; }
+            if (_lblScrollDown != null) { _lblScrollDown.Location = new Point(rightX, checkY); checkY += step; }
+            if (_lblDrag != null) { _lblDrag.Location = new Point(rightX, checkY); checkY += step; }
 
             if (_lblGridProgress != null)
-                _lblGridProgress.Location = new Point(rightX, checkY + Theme.S(5));
+                _lblGridProgress.Location = new Point(rightX, checkY + Theme.S(2));
 
             if (_lblCounter != null)
-                _lblCounter.Location = new Point(rightX, checkY + Theme.S(30));
+                _lblCounter.Location = new Point(rightX, checkY + Theme.S(22));
+
+            if (_grpMathInfo != null)
+            {
+                _grpMathInfo.Location = new Point(rightX, checkY + Theme.S(45));
+                _grpMathInfo.Size = new Size(Theme.S(230), Theme.S(165));
+            }
 
             if (_btnClear != null)
-                _btnClear.Location = new Point(rightX, checkY + Theme.S(65));
+            {
+                if (_grpMathInfo != null && _grpMathInfo.Visible)
+                {
+                    _btnClear.Location = new Point(rightX, _grpMathInfo.Bottom + Theme.S(8));
+                }
+                else
+                {
+                    _btnClear.Location = new Point(rightX, checkY + Theme.S(50));
+                }
+            }
 
             // Legend at the bottom
             if (_lblLegend != null)
-                _lblLegend.Location = new Point(Theme.S(30), clientH - Theme.S(60));
+                _lblLegend.Location = new Point(Theme.S(30), clientH - Theme.S(55));
         }
 
         private void BuildUI()
@@ -245,6 +270,78 @@ namespace TechTest.Forms
             _btnClear.Click += (s, e) => ClearAll();
             Controls.Add(_btnClear);
 
+            // Math panel definition for absolute 10x8 driver calculation display
+            _grpMathInfo = new GroupBox
+            {
+                Text = "📐 Matemática do Mapeamento",
+                ForeColor = Theme.Accent,
+                Font = new Font(Theme.FontButton.FontFamily, 9f, FontStyle.Bold),
+                FlatStyle = FlatStyle.Flat,
+                Visible = false // Only visible in Grid Mode
+            };
+
+            _lblMathDriverRes = new Label
+            {
+                Text = "Res. Driver Raw: 0 a 3000 x 0 a 2000",
+                Location = new Point(Theme.S(10), Theme.S(22)),
+                AutoSize = true,
+                Font = new Font(Theme.FontSmall.FontFamily, 8f),
+                ForeColor = Theme.TextSecondary
+            };
+            _grpMathInfo.Controls.Add(_lblMathDriverRes);
+
+            _lblMathGridSize = new Label
+            {
+                Text = "Grade: X (Largura)=10 > Y (Altura)=8",
+                Location = new Point(Theme.S(10), Theme.S(40)),
+                AutoSize = true,
+                Font = new Font(Theme.FontSmall.FontFamily, 8f),
+                ForeColor = Theme.TextSecondary
+            };
+            _grpMathInfo.Controls.Add(_lblMathGridSize);
+
+            _lblMathFormulaX = new Label
+            {
+                Text = "Passo X: 3000 / 10 = 300 p/ Coluna",
+                Location = new Point(Theme.S(10), Theme.S(58)),
+                AutoSize = true,
+                Font = new Font(Theme.FontSmall.FontFamily, 8f),
+                ForeColor = Theme.TextMuted
+            };
+            _grpMathInfo.Controls.Add(_lblMathFormulaX);
+
+            _lblMathFormulaY = new Label
+            {
+                Text = "Passo Y: 2000 / 8 = 250 p/ Linha",
+                Location = new Point(Theme.S(10), Theme.S(76)),
+                AutoSize = true,
+                Font = new Font(Theme.FontSmall.FontFamily, 8f),
+                ForeColor = Theme.TextMuted
+            };
+            _grpMathInfo.Controls.Add(_lblMathFormulaY);
+
+            _lblMathCurrentRaw = new Label
+            {
+                Text = "Raw Toque: X = 1500 | Y = 1000",
+                Location = new Point(Theme.S(10), Theme.S(100)),
+                AutoSize = true,
+                Font = new Font(Theme.FontBody.FontFamily, 8.5f, FontStyle.Regular),
+                ForeColor = Theme.TextPrimary
+            };
+            _grpMathInfo.Controls.Add(_lblMathCurrentRaw);
+
+            _lblMathMappingResult = new Label
+            {
+                Text = "Mapeado: Coluna 5 | Linha 4",
+                Location = new Point(Theme.S(10), Theme.S(120)),
+                AutoSize = true,
+                Font = new Font(Theme.FontBody.FontFamily, 9f, FontStyle.Bold),
+                ForeColor = Theme.Success
+            };
+            _grpMathInfo.Controls.Add(_lblMathMappingResult);
+
+            Controls.Add(_grpMathInfo);
+
             // Legend
             _lblLegend = Theme.CreateLabel("🟢 Clique esquerdo  🔵 Clique direito  ⬜ Arraste",
                 30, 500, Theme.FontSmall, Theme.TextMuted);
@@ -284,10 +381,14 @@ namespace TechTest.Forms
         private void SwitchMode(bool gridMode)
         {
             _lblGridProgress.Visible = gridMode;
+            if (_grpMathInfo != null)
+            {
+                _grpMathInfo.Visible = gridMode;
+            }
             if (gridMode)
             {
                 _lblLegend.Text = "🟢 Quadrado visitado  🔵 Posição atual";
-                _lblDesc.Text = "Modo Grade: Clique no canvas para ocultar o cursor e testar a posição absoluta (0-3000 x 0-2000). Pressione ESC para sair.";
+                _lblDesc.Text = "Modo Grade: Clique no canvas para ocultar o cursor e testar a posição absoluta (X:0-3000, Y:0-2000). Pressione ESC para sair.";
                 _lblDesc.ForeColor = Theme.Accent;
             }
             else
@@ -299,6 +400,7 @@ namespace TechTest.Forms
             }
 
             _currentZone = new Point(-1, -1);
+            OnResize(EventArgs.Empty); // Re-layout to accommodate math info panel and move the Clear button
             _canvas.Invalidate();
         }
 
@@ -381,7 +483,7 @@ namespace TechTest.Forms
 
             if (_radGridMode != null && _radGridMode.Checked)
             {
-                // Draw Grid Mode (8 cols x 10 rows)
+                // Draw Grid Mode (10 cols x 8 rows)
                 int w = _canvas.Width;
                 int h = _canvas.Height;
                 float cellW = (float)w / GridCols;
@@ -468,15 +570,24 @@ namespace TechTest.Forms
                         // Force the pointer back to the lock point to maintain block
                         Cursor.Position = _lockPoint;
 
-                        // Mapeamento Matemático (8 colunas por 10 linhas):
-                        // Largura X (0..3000) dividida por 8 colunas -> largura do quadrado = 375
-                        // Altura Y (0..2000) dividida por 10 linhas -> altura do quadrado = 200
-                        int col = (int)(_rawTouchX / 375f);
-                        int row = (int)(_rawTouchY / 200f);
+                        // Mapeamento Matemático (10 colunas por 8 linhas):
+                        // Largura X (0..3000) dividida por 10 colunas -> largura do quadrado = 300
+                        // Altura Y (0..2000) dividida por 8 linhas -> altura do quadrado = 250
+                        int col = (int)(_rawTouchX / 300f);
+                        int row = (int)(_rawTouchY / 250f);
 
                         // Clamp mapped column and row indexes
                         col = Math.Max(0, Math.Min(GridCols - 1, col));
                         row = Math.Max(0, Math.Min(GridRows - 1, row));
+
+                        if (_lblMathCurrentRaw != null)
+                        {
+                            _lblMathCurrentRaw.Text = $"Raw Toque: X = {(int)_rawTouchX} | Y = {(int)_rawTouchY}";
+                        }
+                        if (_lblMathMappingResult != null)
+                        {
+                            _lblMathMappingResult.Text = $"Mapeado: Coluna {col + 1} | Linha {row + 1}";
+                        }
 
                         Point newZone = new Point(col, row);
                         if (newZone != _currentZone)
@@ -641,6 +752,15 @@ namespace TechTest.Forms
             _currentZone = new Point(-1, -1);
             _rawTouchX = 1500f; // Reset raw coordinates
             _rawTouchY = 1000f;
+
+            if (_lblMathCurrentRaw != null)
+            {
+                _lblMathCurrentRaw.Text = "Raw Toque: X = 1500 | Y = 1000";
+            }
+            if (_lblMathMappingResult != null)
+            {
+                _lblMathMappingResult.Text = "Mapeado: Coluna 5 | Linha 4";
+            }
 
             UpdateGridProgress();
 
