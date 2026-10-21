@@ -97,6 +97,13 @@ public class KeyboardCanvasView : SKCanvasView
     public Dictionary<string, KeyState> KeyStates => _keyStates;
     public HashSet<string> CurrentlyHeldKeys => _currentlyHeldKeys;
 
+    // Teclas com falha de chattering (id -> ms medidos entre KeyUp e o KeyDown seguinte)
+    private readonly Dictionary<string, long> _chatterKeys = new();
+    public IReadOnlyDictionary<string, long> ChatterKeys => _chatterKeys;
+
+    private static readonly SKColor AlertBg = SKColor.Parse("#EF4444");
+    private static readonly SKColor AlertBorder = SKColor.Parse("#FCA5A5");
+
     public int PressedCount => _pressedCount;
     public int TotalKeys => _totalKeys;
 
@@ -145,6 +152,14 @@ public class KeyboardCanvasView : SKCanvasView
     }
 
     #region Key State Management
+
+    /// <summary>Marca a tecla em vermelho (Key Chattering) exibindo o tempo medido em ms.</summary>
+    public void MarkChatter(string keyId, long milliseconds)
+    {
+        if (string.IsNullOrEmpty(keyId)) return;
+        _chatterKeys[keyId] = milliseconds;
+        InvalidateSurface();
+    }
 
     public void KeyPressed(string keyId)
     {
@@ -204,6 +219,7 @@ public class KeyboardCanvasView : SKCanvasView
     {
         _keyStates.Clear();
         _currentlyHeldKeys.Clear();
+        _chatterKeys.Clear();
         _pressedCount = 0;
         ProgressChanged?.Invoke(this, 0);
         InvalidateSurface();
@@ -643,6 +659,15 @@ public class KeyboardCanvasView : SKCanvasView
                 break;
         }
 
+        bool isChatter = _chatterKeys.TryGetValue(key.KeyId, out long chatterMs);
+        if (isChatter)
+        {
+            bgColor = AlertBg;
+            borderColor = AlertBorder;
+            textColor = SKColors.White;
+            borderWidth = 3f;
+        }
+
         var rect = key.Bounds;
         var rrect = new SKRoundRect(rect, 5f);
 
@@ -696,6 +721,19 @@ public class KeyboardCanvasView : SKCanvasView
         float textX = rect.MidX;
         float textY = rect.MidY + textPaint.TextSize * 0.35f;
         canvas.DrawText(key.Label ?? "", textX, textY, textPaint);
+
+        if (isChatter)
+        {
+            using var msPaint = new SKPaint
+            {
+                Color = SKColors.White,
+                TextSize = 7f,
+                IsAntialias = true,
+                FakeBoldText = true,
+                TextAlign = SKTextAlign.Center
+            };
+            canvas.DrawText($"{chatterMs}ms", rect.MidX, rect.Bottom - 3f, msPaint);
+        }
     }
 
     #endregion

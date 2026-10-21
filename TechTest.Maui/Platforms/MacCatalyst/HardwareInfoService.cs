@@ -30,6 +30,8 @@ public class HardwareInfoService : IHardwareInfoService
         });
     }
 
+    public Task<List<ProblemDevice>> GetProblemDevicesAsync() => Task.FromResult(new List<ProblemDevice>());
+
     private async Task<string> GetCpuNameAsync()
     {
         try

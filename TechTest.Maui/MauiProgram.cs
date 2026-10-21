@@ -15,12 +15,8 @@ public static class MauiProgram
             .UseMauiApp<App>()
             .UseSkiaSharp()
             .UseMauiCommunityToolkit()
-            .UseMauiCommunityToolkitCamera()
-            .ConfigureFonts(fonts =>
-            {
-                fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-                fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
-            });
+            .UseMauiCommunityToolkitCamera();
+        // Nota: as fontes OpenSans não existem em Resources/Fonts; o sistema usa a fonte padrão como fallback.
 
         RegisterServices(builder.Services);
 
@@ -33,10 +29,12 @@ public static class MauiProgram
 
     private static void RegisterServices(IServiceCollection services)
     {
+#if WINDOWS || MACCATALYST
         services.AddSingleton<IHardwareInfoService, HardwareInfoService>();
         services.AddSingleton<IAudioPlaybackService, AudioPlaybackService>();
         services.AddSingleton<IAudioCaptureService, AudioCaptureService>();
         services.AddSingleton<IBatteryService, BatteryService>();
+#endif
 
         services.AddTransient<Views.MainPage>();
         services.AddTransient<Views.MicrophoneTestPage>();
@@ -44,6 +42,7 @@ public static class MauiProgram
         services.AddTransient<Views.KeyboardTestPage>();
         services.AddTransient<Views.BatteryTestPage>();
         services.AddTransient<Views.SpecsPage>();
+        services.AddTransient<Views.DriverUpdatePage>();
         services.AddTransient<Views.CameraTestPage>();
         services.AddTransient<Views.DeadPixelTestPage>();
         services.AddTransient<Views.TouchpadTestPage>();

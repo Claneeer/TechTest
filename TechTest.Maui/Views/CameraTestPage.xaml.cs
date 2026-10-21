@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Maui.Controls;
@@ -10,7 +10,8 @@ namespace TechTest.Maui.Views
     {
         public CameraTestPage()
         {
-            InitializeComponent();
+            InitializeComponent();
+            TechTest.Maui.Controls.ApprovalBar.Attach(this, TechTest.Maui.Services.TestId.Camera);
         }
 
         private async void OnStartCameraClicked(object sender, EventArgs e)

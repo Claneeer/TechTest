@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.Maui.Controls;
 using TechTest.Maui.Services;
 using TechTest.Maui.ViewModels;
@@ -11,7 +11,8 @@ namespace TechTest.Maui.Views
 
         public AudioTestPage()
         {
-            InitializeComponent();
+            InitializeComponent();
+            TechTest.Maui.Controls.ApprovalBar.Attach(this, TechTest.Maui.Services.TestId.Audio);
 
             var audioPlayback = IPlatformApplication.Current?.Services?.GetService<IAudioPlaybackService>();
             _viewModel = new AudioTestViewModel(audioPlayback);

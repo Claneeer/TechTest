@@ -5,6 +5,7 @@ namespace TechTest.Maui.Views
 {
     public partial class DeadPixelTestPage : ContentPage
     {
+        private TechTest.Maui.Controls.ApprovalBar? _approvalBar;
         private readonly Color[] _testColors = new[]
         {
             Colors.Red,
@@ -33,7 +34,8 @@ namespace TechTest.Maui.Views
 
         public DeadPixelTestPage()
         {
-            InitializeComponent();
+            InitializeComponent();
+            _approvalBar = TechTest.Maui.Controls.ApprovalBar.Attach(this, TechTest.Maui.Services.TestId.DeadPixel);
         }
 
         private void OnStartTestClicked(object sender, EventArgs e)
@@ -45,6 +47,7 @@ namespace TechTest.Maui.Views
         {
             _colorIndex = 0;
             LayoutNormal.IsVisible = false;
+            if (_approvalBar != null) _approvalBar.IsVisible = false;
             LayoutFullscreen.IsVisible = true;
             UpdateColor();
 
@@ -63,6 +66,7 @@ namespace TechTest.Maui.Views
         {
             LayoutFullscreen.IsVisible = false;
             LayoutNormal.IsVisible = true;
+            if (_approvalBar != null) _approvalBar.IsVisible = true;
 
 #if WINDOWS
             var window = App.Current?.Windows?[0]?.Handler?.PlatformView as Microsoft.UI.Xaml.Window;

@@ -17,6 +17,12 @@
     <CheckEolTargetFramework>false</CheckEolTargetFramework>
     <CheckEolWorkloads>false</CheckEolWorkloads>
   </PropertyGroup>
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Maui.Controls" Version="8.0.91" />
     <PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="8.0.91" />

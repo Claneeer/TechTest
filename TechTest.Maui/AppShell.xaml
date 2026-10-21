@@ -53,4 +53,11 @@
             Route="BatteryTestPage" />
     </TabBar>
 
+    <!-- Páginas secundárias: navegadas via //Rota a partir da MainPage (fora da tab bar) -->
+    <ShellContent Title="Specs" ContentTemplate="{DataTemplate views:SpecsPage}" Route="SpecsPage" FlyoutItemIsVisible="False" />
+    <ShellContent Title="Câmera" ContentTemplate="{DataTemplate views:CameraTestPage}" Route="CameraTestPage" FlyoutItemIsVisible="False" />
+    <ShellContent Title="Pixel Morto" ContentTemplate="{DataTemplate views:DeadPixelTestPage}" Route="DeadPixelTestPage" FlyoutItemIsVisible="False" />
+    <ShellContent Title="Touchpad" ContentTemplate="{DataTemplate views:TouchpadTestPage}" Route="TouchpadTestPage" FlyoutItemIsVisible="False" />
+    <ShellContent Title="Drivers" ContentTemplate="{DataTemplate views:DriverUpdatePage}" Route="DriverUpdatePage" FlyoutItemIsVisible="False" />
+
 </Shell>

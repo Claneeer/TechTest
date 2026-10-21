@@ -1,14 +1,19 @@
-using System;
+﻿using System;
 using Microsoft.Maui.Controls;
 using TechTest.Maui.Controls;
+using TechTest.Maui.ViewModels;
 
 namespace TechTest.Maui.Views
 {
     public partial class KeyboardTestPage : ContentPage
     {
+        private readonly KeyboardTestViewModel _vm = new();
+
         public KeyboardTestPage()
         {
-            InitializeComponent();
+            InitializeComponent();
+            TechTest.Maui.Controls.ApprovalBar.Attach(this, TechTest.Maui.Services.TestId.Keyboard);
+            BindingContext = _vm;
             
             // Set initial switch value and numpad setting
             SwitchNumpad.IsToggled = true;
@@ -36,6 +41,7 @@ namespace TechTest.Maui.Views
         private void OnResetClicked(object sender, EventArgs e)
         {
             KeyboardCanvas.ResetKeys();
+            _vm.ResetHistory();
             UpdateProgress(0);
         }
 
@@ -79,6 +85,12 @@ namespace TechTest.Maui.Views
             }
 
             string mappedId = KeyboardCanvas.MapKeyToId(keyStr);
+
+            // Detecção de chattering: KeyUp -> KeyDown da mesma tecla em < 35 ms
+            long? chatterMs = _vm.RegisterKeyDown(mappedId);
+            if (chatterMs.HasValue)
+                KeyboardCanvas.MarkChatter(mappedId, chatterMs.Value);
+
             KeyboardCanvas.KeyDown(mappedId);
         }
 
@@ -102,8 +114,47 @@ namespace TechTest.Maui.Views
             }
 
             string mappedId = KeyboardCanvas.MapKeyToId(keyStr);
+            _vm.RegisterKeyUp(mappedId);
             KeyboardCanvas.KeyUp(mappedId);
             KeyboardCanvas.KeyPressed(mappedId);
+        }
+
+        private Microsoft.UI.Xaml.UIElement? _hookedContent;
+
+        private void OnPageLoadedHook(object? sender, EventArgs e) => TryHookWindowsKeyboard();
+        private void OnPageHandlerChangedHook(object? sender, EventArgs e) => TryHookWindowsKeyboard();
+
+        private void TryHookWindowsKeyboard()
+        {
+            try
+            {
+                // Window.Handler / PlatformView can be null until the page is attached and loaded
+                var window = this.Window?.Handler?.PlatformView as Microsoft.UI.Xaml.Window;
+                var content = window?.Content;
+                if (window == null || content == null) return;
+                if (ReferenceEquals(_hookedContent, content)) return;
+
+                UnhookWindowsKeyboard();
+                _winuiWindow = window;
+                _hookedContent = content;
+                content.KeyDown += PlatformContent_KeyDown;
+                content.KeyUp += PlatformContent_KeyUp;
+                content.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Keyboard hook failed: {ex.Message}");
+            }
+        }
+
+        private void UnhookWindowsKeyboard()
+        {
+            if (_hookedContent != null)
+            {
+                _hookedContent.KeyDown -= PlatformContent_KeyDown;
+                _hookedContent.KeyUp -= PlatformContent_KeyUp;
+                _hookedContent = null;
+            }
         }
 #endif
 
@@ -120,17 +171,11 @@ namespace TechTest.Maui.Views
             UpdateProgress(KeyboardCanvas.PressedCount);
 
 #if WINDOWS
-            var window = App.Current?.Windows?[0]?.Handler?.PlatformView as Microsoft.UI.Xaml.Window;
-            if (window != null)
-            {
-                _winuiWindow = window;
-                if (window.Content != null)
-                {
-                    window.Content.KeyDown += PlatformContent_KeyDown;
-                    window.Content.KeyUp += PlatformContent_KeyUp;
-                    window.Content.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
-                }
-            }
+            Loaded -= OnPageLoadedHook;
+            Loaded += OnPageLoadedHook;
+            HandlerChanged -= OnPageHandlerChangedHook;
+            HandlerChanged += OnPageHandlerChangedHook;
+            TryHookWindowsKeyboard();
 #endif
 
 #if MACCATALYST
@@ -152,11 +197,9 @@ namespace TechTest.Maui.Views
             KeyboardCanvas.ProgressChanged -= KeyboardCanvas_ProgressChanged;
 
 #if WINDOWS
-            if (_winuiWindow != null && _winuiWindow.Content != null)
-            {
-                _winuiWindow.Content.KeyDown -= PlatformContent_KeyDown;
-                _winuiWindow.Content.KeyUp -= PlatformContent_KeyUp;
-            }
+            Loaded -= OnPageLoadedHook;
+            HandlerChanged -= OnPageHandlerChangedHook;
+            UnhookWindowsKeyboard();
 #endif
 
 #if MACCATALYST

@@ -6,8 +6,8 @@
              BackgroundColor="{StaticResource BgPrimary}"
              Shell.NavBarIsVisible="False">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="20">
-        
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20">
+
         <!-- Header -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,15">
             <VerticalStackLayout Grid.Column="0" Spacing="4">
@@ -15,11 +15,11 @@
                        FontSize="24"
                        FontAttributes="Bold"
                        TextColor="{StaticResource TextPrimary}" />
-                <Label Text="Mova o cursor por toda a área e clique para testar botões e zonas mortas"
+                <Label Text="Deslize o cursor por todos os blocos do grid (scanner de zonas mortas) e teste cada tipo de evento"
                        FontSize="13"
                        TextColor="{StaticResource TextSecondary}" />
             </VerticalStackLayout>
-            
+
             <Button Grid.Column="1"
                     Text="Voltar"
                     Clicked="OnBackClicked"
@@ -38,39 +38,53 @@
                BorderColor="{StaticResource Border}"
                CornerRadius="12"
                Padding="15"
-               Margin="0,0,0,15"
+               Margin="0,0,0,12"
                HasShadow="False">
             <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="20" VerticalOptions="Center">
-                
+
                 <!-- Area Coverage -->
                 <VerticalStackLayout Grid.Column="0" Spacing="5" VerticalOptions="Center">
                     <Grid ColumnDefinitions="*,Auto">
                         <Label Grid.Column="0"
-                               Text="Cobertura da Área de Toque"
+                               Text="Cobertura da Superfície (blocos visitados)"
                                FontSize="12"
                                TextColor="{StaticResource TextSecondary}" />
                         <Label Grid.Column="1"
                                x:Name="LblCoverage"
-                               Text="0 / 48 (0%)"
+                               Text="0 / 150 (0%)"
                                FontSize="12"
                                FontAttributes="Bold"
                                TextColor="{StaticResource Accent}" />
                     </Grid>
                     <ProgressBar x:Name="ProgressBarCoverage"
                                  Progress="0"
-                                 ProgressColor="{StaticResource Accent}"
+                                 ProgressColor="{StaticResource Success}"
                                  HeightRequest="8" />
                 </VerticalStackLayout>
 
                 <!-- Click Counter -->
-                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" WidthRequest="120">
-                    <Label Text="Cliques Registrados" FontSize="11" TextColor="{StaticResource TextSecondary}" HorizontalTextAlignment="Center" />
+                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" WidthRequest="110">
+                    <Label Text="Cliques" FontSize="11" TextColor="{StaticResource TextSecondary}" HorizontalTextAlignment="Center" />
                     <Label x:Name="LblClicks" Text="0" FontSize="18" FontAttributes="Bold" TextColor="{StaticResource Success}" HorizontalTextAlignment="Center" />
                 </VerticalStackLayout>
 
+                <!-- Ghost Touch -->
+                <Button Grid.Column="2"
+                        x:Name="BtnGhost"
+                        Text="👻 Testar Toque Fantasma (5s)"
+                        Clicked="OnGhostClicked"
+                        BackgroundColor="{StaticResource BgInput}"
+                        TextColor="{StaticResource TextPrimary}"
+                        BorderColor="{StaticResource Warning}"
+                        BorderWidth="1"
+                        CornerRadius="8"
+                        HeightRequest="40"
+                        Padding="14,0"
+                        VerticalOptions="Center" />
+
                 <!-- Reset Button -->
                 <Button Grid.Column="3"
-                        Text="Limpar Desenho"
+                        Text="Limpar"
                         Clicked="OnResetClicked"
                         BackgroundColor="{StaticResource Accent}"
                         TextColor="{StaticResource White}"
@@ -80,8 +94,34 @@
             </Grid>
         </Frame>
 
+        <!-- Event Checklist badges + ghost result -->
+        <VerticalStackLayout Grid.Row="2" Spacing="8" Margin="0,0,0,12">
+            <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Center">
+                <Border x:Name="BadgeLeft" StrokeShape="RoundRectangle 16" StrokeThickness="1.5" Padding="14,6" Margin="0,0,8,6">
+                    <Label x:Name="LblBadgeLeft" Text="🖱️ Clique Esquerdo" FontSize="12" FontAttributes="Bold" />
+                </Border>
+                <Border x:Name="BadgeRight" StrokeShape="RoundRectangle 16" StrokeThickness="1.5" Padding="14,6" Margin="0,0,8,6">
+                    <Label x:Name="LblBadgeRight" Text="🖱️ Clique Direito" FontSize="12" FontAttributes="Bold" />
+                </Border>
+                <Border x:Name="BadgeVScroll" StrokeShape="RoundRectangle 16" StrokeThickness="1.5" Padding="14,6" Margin="0,0,8,6">
+                    <Label x:Name="LblBadgeVScroll" Text="↕️ Scroll Vertical" FontSize="12" FontAttributes="Bold" />
+                </Border>
+                <Border x:Name="BadgeHScroll" StrokeShape="RoundRectangle 16" StrokeThickness="1.5" Padding="14,6" Margin="0,0,8,6">
+                    <Label x:Name="LblBadgeHScroll" Text="↔️ Scroll Horizontal" FontSize="12" FontAttributes="Bold" />
+                </Border>
+                <Border x:Name="BadgeMulti" StrokeShape="RoundRectangle 16" StrokeThickness="1.5" Padding="14,6" Margin="0,0,8,6">
+                    <Label x:Name="LblBadgeMulti" Text="🤏 Multi-toque / Pinça" FontSize="12" FontAttributes="Bold" />
+                </Border>
+            </FlexLayout>
+
+            <Label x:Name="LblGhostResult"
+                   IsVisible="False"
+                   FontSize="13"
+                   FontAttributes="Bold" />
+        </VerticalStackLayout>
+
         <!-- Canvas Frame -->
-        <Frame Grid.Row="2"
+        <Frame Grid.Row="3"
                BackgroundColor="#0A0A14"
                BorderColor="{StaticResource Border}"
                CornerRadius="12"
@@ -89,7 +129,7 @@
                HasShadow="False"
                VerticalOptions="FillAndExpand"
                HorizontalOptions="FillAndExpand">
-            
+
             <skia:SKCanvasView x:Name="CanvasTouch"
                                EnableTouchEvents="True"
                                Touch="OnCanvasTouch"
@@ -99,14 +139,14 @@
         </Frame>
 
         <!-- Footer -->
-        <Frame Grid.Row="3"
+        <Frame Grid.Row="4"
                BackgroundColor="{StaticResource BgCard}"
                BorderColor="{StaticResource Border}"
                CornerRadius="10"
                Padding="12"
-               Margin="0,15,0,0"
+               Margin="0,12,0,0"
                HasShadow="False">
-            <Label Text="Desenhe cobrindo todos os retângulos do grid. Clique nos botões físico esquerdo/direito para registrar toques."
+            <Label Text="Passe o cursor/dedo por todos os blocos até chegar a 100%. Blocos verdes = área funcional; blocos escuros = possível zona morta. Teste também cliques, scrolls (2 dedos) e pinça."
                    FontSize="12"
                    HorizontalTextAlignment="Center"
                    TextColor="{StaticResource TextSecondary}" />

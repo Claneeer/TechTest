@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using Microsoft.Maui.Controls;
@@ -13,7 +13,8 @@ namespace TechTest.Maui.Views
 
         public MicrophoneTestPage()
         {
-            InitializeComponent();
+            InitializeComponent();
+            TechTest.Maui.Controls.ApprovalBar.Attach(this, TechTest.Maui.Services.TestId.Microphone);
 
             var audioService = IPlatformApplication.Current?.Services?.GetService<IAudioCaptureService>();
             var audioPlayback = IPlatformApplication.Current?.Services?.GetService<IAudioPlaybackService>();

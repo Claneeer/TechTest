@@ -224,6 +224,52 @@
                     </VerticalStackLayout>
                 </Frame>
 
+                <!-- Section: Saúde S.M.A.R.T. -->
+                <Frame x:Name="SectionSmart"
+                       BackgroundColor="{StaticResource BgCard}"
+                       BorderColor="{StaticResource Border}"
+                       CornerRadius="12"
+                       Padding="18"
+                       HasShadow="False"
+                       IsVisible="False">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="🩺 Saúde do Armazenamento (S.M.A.R.T.)"
+                               FontSize="16"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource TextPrimary}" />
+                        <BoxView Color="{StaticResource Border}" HeightRequest="1" />
+                        <CollectionView x:Name="SmartList" ItemSizingStrategy="MeasureAllItems">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame BackgroundColor="{StaticResource BgInput}"
+                                           BorderColor="{Binding HealthColor}"
+                                           CornerRadius="8"
+                                           Padding="12"
+                                           Margin="0,4"
+                                           HasShadow="False">
+                                        <VerticalStackLayout Spacing="6">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <Label Grid.Column="0" Text="{Binding Name}" TextColor="{StaticResource TextPrimary}" FontSize="13" FontAttributes="Bold" />
+                                                <Label Grid.Column="1" Text="{Binding MediaType}" TextColor="{StaticResource TextSecondary}" FontSize="11" />
+                                            </Grid>
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                                <ProgressBar Grid.Column="0" Progress="{Binding HealthFraction}" ProgressColor="{Binding HealthColor}" BackgroundColor="{StaticResource BgDark}" HeightRequest="8" VerticalOptions="Center" />
+                                                <Label Grid.Column="1" Text="{Binding HealthStatus}" TextColor="{Binding HealthColor}" FontSize="12" FontAttributes="Bold" />
+                                            </Grid>
+                                            <Label Text="{Binding Summary}" TextColor="{StaticResource TextSecondary}" FontSize="11" />
+                                        </VerticalStackLayout>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        <Label x:Name="LblSmartNote"
+                               IsVisible="False"
+                               Text="ℹ️ Desgaste, temperatura e horas ligado só são expostos pelo Windows quando o app roda como administrador (e se o disco suportar)."
+                               TextColor="{StaticResource Warning}"
+                               FontSize="11" />
+                    </VerticalStackLayout>
+                </Frame>
+
                 <!-- Section: Service Tag -->
                 <Frame x:Name="SectionServiceTag"
                        BackgroundColor="{StaticResource BgCard}"
@@ -244,6 +290,19 @@
                         </Grid>
                     </VerticalStackLayout>
                 </Frame>
+
+                <!-- Driver updater -->
+                <Button x:Name="BtnDrivers"
+                        Text="🔧 Atualizador de Drivers OEM"
+                        BackgroundColor="{StaticResource BgCard}"
+                        TextColor="{StaticResource TextPrimary}"
+                        BorderColor="{StaticResource Accent}"
+                        BorderWidth="1"
+                        FontSize="14"
+                        CornerRadius="10"
+                        HeightRequest="48"
+                        Margin="0,10,0,0"
+                        Clicked="OnDriversClicked" />
 
                 <!-- Copy All button -->
                 <Button x:Name="BtnCopyAll"

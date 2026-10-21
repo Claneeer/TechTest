@@ -75,6 +75,10 @@ namespace TechTest.Maui.Views
                         }
                         DriveList.ItemsSource = drivesList;
 
+                        SmartList.ItemsSource = specs.DiskHealth;
+                        SectionSmart.IsVisible = specs.DiskHealth != null && specs.DiskHealth.Count > 0;
+                        LblSmartNote.IsVisible = specs.DiskHealth != null && specs.DiskHealth.Any(d => !d.HealthPercent.HasValue || !d.TemperatureC.HasValue);
+
                         SectionSistema.IsVisible = true;
                         SectionCPU.IsVisible = true;
                         SectionRAM.IsVisible = true;
@@ -165,6 +169,11 @@ namespace TechTest.Maui.Views
             {
                 await DisplayAlert("Erro", $"Erro ao copiar para a área de transferência:\n{ex.Message}", "OK");
             }
+        }
+
+        private async void OnDriversClicked(object sender, EventArgs e)
+        {
+            await Shell.Current.GoToAsync("//DriverUpdatePage");
         }
 
         private async void OnBackClicked(object sender, EventArgs e)

@@ -6,7 +6,7 @@
              BackgroundColor="{StaticResource BgPrimary}"
              Shell.NavBarIsVisible="False">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="20">
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20">
         
         <!-- Header -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,15">
@@ -32,8 +32,69 @@
                     VerticalOptions="Center" />
         </Grid>
 
-        <!-- Stats Bar -->
+        <!-- Key History Bar -->
         <Frame Grid.Row="1"
+               BackgroundColor="{StaticResource BgCard}"
+               BorderColor="{StaticResource Border}"
+               CornerRadius="12"
+               Padding="12,10"
+               Margin="0,0,0,15"
+               HasShadow="False">
+            <VerticalStackLayout Spacing="8">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="18">
+                    <Label Grid.Column="0"
+                           Text="⌨️ Últimas teclas pressionadas"
+                           FontSize="12"
+                           VerticalOptions="Center"
+                           TextColor="{StaticResource TextSecondary}" />
+
+                    <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                        <Label Text="Simultâneas:" FontSize="12" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+                        <Label x:Name="LblKeysPressed" Text="{Binding KeysPressedCount}" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource Accent}" VerticalOptions="Center" />
+                        <Label Text="Pico:" FontSize="12" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" Margin="8,0,0,0" />
+                        <Label x:Name="LblPeakKeys" Text="{Binding PeakKeysPressed}" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource Success}" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+
+                    <Label Grid.Column="2"
+                           Text="{Binding LastChatterText}"
+                           TextColor="{Binding LastChatterColor}"
+                           FontSize="12"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center" />
+                </Grid>
+
+                <CollectionView ItemsSource="{Binding History}"
+                                HeightRequest="46"
+                                SelectionMode="None"
+                                HorizontalScrollBarVisibility="Never">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Horizontal" ItemSpacing="6" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.EmptyView>
+                        <Label Text="Pressione uma tecla para começar..." FontSize="12" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Border BackgroundColor="{Binding BackgroundColor}"
+                                    Stroke="{Binding BorderColor}"
+                                    StrokeThickness="1.5"
+                                    StrokeShape="RoundRectangle 8"
+                                    Padding="12,4"
+                                    MinimumWidthRequest="40"
+                                    HeightRequest="40">
+                                <VerticalStackLayout VerticalOptions="Center" Spacing="0">
+                                    <Label Text="{Binding Label}" TextColor="{Binding TextColor}" FontSize="13" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                                    <Label Text="{Binding Detail}" IsVisible="{Binding HasDetail}" TextColor="White" FontSize="9" HorizontalTextAlignment="Center" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+        </Frame>
+
+        <!-- Stats Bar -->
+        <Frame Grid.Row="2"
                BackgroundColor="{StaticResource BgCard}"
                BorderColor="{StaticResource Border}"
                CornerRadius="12"
@@ -87,7 +148,7 @@
         </Frame>
 
         <!-- Keyboard Canvas Container -->
-        <Frame Grid.Row="2"
+        <Frame Grid.Row="3"
                BackgroundColor="#0A0A14"
                BorderColor="{StaticResource Border}"
                CornerRadius="12"
@@ -102,7 +163,7 @@
         </Frame>
 
         <!-- Footer Legend -->
-        <Frame Grid.Row="3"
+        <Frame Grid.Row="4"
                BackgroundColor="{StaticResource BgCard}"
                BorderColor="{StaticResource Border}"
                CornerRadius="10"

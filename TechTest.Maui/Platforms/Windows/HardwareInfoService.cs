@@ -27,9 +27,168 @@ public class HardwareInfoService : IHardwareInfoService
             GetScreenInfo(specs);
             specs.StorageDevices = GetStorageDevices();
             specs.ServiceTag = GetServiceTag();
+            specs.DiskHealth = GetDiskHealth();
+            GetBaseBoardInfo(specs);
+            specs.BiosSerial = specs.ServiceTag;
+
+            // Se a BIOS não tem serial válido, usa o da placa-mãe como fallback
+            if (IsInvalidSerial(specs.ServiceTag) && !IsInvalidSerial(specs.BaseBoardSerial))
+                specs.ServiceTag = specs.BaseBoardSerial;
 
             return specs;
         });
+    }
+
+    public async Task<List<ProblemDevice>> GetProblemDevicesAsync()
+    {
+        return await Task.Run(() =>
+        {
+            var list = new List<ProblemDevice>();
+            try
+            {
+                using var searcher = new ManagementObjectSearcher(
+                    "SELECT Name, DeviceID, HardwareID, ConfigManagerErrorCode FROM Win32_PnPEntity WHERE ConfigManagerErrorCode <> 0");
+                foreach (ManagementBaseObject obj in searcher.Get())
+                {
+                    string hwId = "";
+                    if (obj["HardwareID"] is string[] ids && ids.Length > 0)
+                        hwId = ids[0];
+
+                    int code = 0;
+                    if (obj["ConfigManagerErrorCode"] != null)
+                        int.TryParse(obj["ConfigManagerErrorCode"].ToString(), out code);
+
+                    list.Add(new ProblemDevice
+                    {
+                        Name = obj["Name"]?.ToString() ?? "Dispositivo desconhecido",
+                        DeviceId = obj["DeviceID"]?.ToString() ?? "",
+                        HardwareId = hwId,
+                        ErrorCode = code
+                    });
+                    obj.Dispose();
+                }
+            }
+            catch
+            {
+                // Fallback silencioso
+            }
+            return list;
+        });
+    }
+
+    /// <summary>
+    /// Saúde S.M.A.R.T.: MSFT_PhysicalDisk (status/tipo) + MSFT_StorageReliabilityCounter (desgaste, temperatura, horas ligado).
+    /// Alguns drives só expõem os contadores quando o app roda como administrador.
+    /// </summary>
+    private List<DiskHealthInfo> GetDiskHealth()
+    {
+        var list = new List<DiskHealthInfo>();
+        try
+        {
+            var scope = new ManagementScope(@"\\.\root\Microsoft\Windows\Storage");
+            scope.Connect();
+
+            using var searcher = new ManagementObjectSearcher(scope,
+                new ObjectQuery("SELECT FriendlyName, MediaType, HealthStatus, BusType FROM MSFT_PhysicalDisk"));
+
+            foreach (ManagementObject disk in searcher.Get())
+            {
+                var info = new DiskHealthInfo
+                {
+                    Name = disk["FriendlyName"]?.ToString()?.Trim() ?? "Disco",
+                    MediaType = MapMediaType(disk["MediaType"], disk["BusType"]),
+                    HealthStatus = MapHealthStatus(disk["HealthStatus"])
+                };
+
+                try
+                {
+                    foreach (ManagementObject rel in disk.GetRelated("MSFT_StorageReliabilityCounter"))
+                    {
+                        if (TryGetInt(rel["Wear"], out int wear) && wear >= 0 && wear <= 100)
+                            info.HealthPercent = 100 - wear;
+
+                        // 0 °C costuma significar "não informado"
+                        if (TryGetInt(rel["Temperature"], out int temp) && temp > 0 && temp < 150)
+                            info.TemperatureC = temp;
+
+                        if (TryGetLong(rel["PowerOnHours"], out long hours) && hours > 0)
+                            info.PowerOnHours = hours;
+
+                        rel.Dispose();
+                        break;
+                    }
+                }
+                catch
+                {
+                    // Contadores indisponíveis (sem privilégio ou drive não suporta)
+                }
+
+                list.Add(info);
+                disk.Dispose();
+            }
+        }
+        catch
+        {
+            // Namespace de Storage indisponível
+        }
+
+        return list;
+    }
+
+    private static bool TryGetInt(object? value, out int result)
+    {
+        result = 0;
+        return value != null && int.TryParse(value.ToString(), out result);
+    }
+
+    private static bool TryGetLong(object? value, out long result)
+    {
+        result = 0;
+        return value != null && long.TryParse(value.ToString(), out result);
+    }
+
+    private static string MapHealthStatus(object? value) =>
+        TryGetInt(value, out int s)
+            ? s switch { 0 => "Saudável", 1 => "Atenção", 2 => "Crítico", _ => "Desconhecido" }
+            : "Desconhecido";
+
+    private static string MapMediaType(object? media, object? bus)
+    {
+        // BusType 17 = NVMe
+        if (TryGetInt(bus, out int b) && b == 17) return "NVMe";
+        return TryGetInt(media, out int m)
+            ? m switch { 3 => "HDD", 4 => "SSD", 5 => "SCM", _ => "Desconhecido" }
+            : "Desconhecido";
+    }
+
+    private static bool IsInvalidSerial(string? serial)
+    {
+        if (string.IsNullOrWhiteSpace(serial)) return true;
+        string[] invalid = { "To be filled by O.E.M.", "Default string", "System Serial Number", "None",
+                             "Não disponível", "Desconhecido", "Carregando..." };
+        foreach (var s in invalid)
+            if (serial.Equals(s, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
+    private void GetBaseBoardInfo(HardwareSpecs specs)
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher("SELECT Manufacturer, Product, SerialNumber FROM Win32_BaseBoard");
+            foreach (var obj in searcher.Get())
+            {
+                specs.BaseBoardManufacturer = obj["Manufacturer"]?.ToString()?.Trim() ?? "";
+                specs.BaseBoardProduct = obj["Product"]?.ToString()?.Trim() ?? "";
+                specs.BaseBoardSerial = obj["SerialNumber"]?.ToString()?.Trim() ?? "";
+                obj.Dispose();
+                return;
+            }
+        }
+        catch
+        {
+            // Fallback silencioso
+        }
     }
 
     private string GetCpuName()
@@ -68,7 +227,8 @@ public class HardwareInfoService : IHardwareInfoService
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher("SELECT Manufacturer, Model FROM Win32_ComputerSystem");
+            using var searcher = new ManagementObjectSearcher(
+                "SELECT Manufacturer, Model, SystemFamily, SystemSKUNumber FROM Win32_ComputerSystem");
             foreach (var obj in searcher.Get())
             {
                 string rawManufacturer = obj["Manufacturer"]?.ToString() ?? "Desconhecido";
@@ -76,6 +236,8 @@ public class HardwareInfoService : IHardwareInfoService
 
                 specs.Manufacturer = CleanManufacturerName(rawManufacturer);
                 specs.Model = rawModel.Trim();
+                specs.SystemFamily = obj["SystemFamily"]?.ToString()?.Trim() ?? "";
+                specs.SystemSku = obj["SystemSKUNumber"]?.ToString()?.Trim() ?? "";
 
                 obj.Dispose();
                 return;

@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TechTest.Maui.Views.DriverUpdatePage"
+             BackgroundColor="{StaticResource BgPrimary}"
+             Shell.NavBarIsVisible="False">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="16">
+
+            <!-- Header -->
+            <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,10">
+                <Button Grid.Column="0"
+                        Text="← Voltar"
+                        BackgroundColor="{StaticResource BgCard}"
+                        TextColor="{StaticResource TextPrimary}"
+                        FontSize="12"
+                        BorderColor="{StaticResource Border}"
+                        BorderWidth="1"
+                        CornerRadius="8"
+                        HeightRequest="36"
+                        Padding="14,0"
+                        Clicked="OnBackClicked" />
+                <Label Grid.Column="1"
+                       Text="Atualizador de Drivers OEM"
+                       FontSize="22"
+                       FontAttributes="Bold"
+                       TextColor="{StaticResource TextPrimary}"
+                       VerticalTextAlignment="Center"
+                       Margin="15,0,0,0" />
+            </Grid>
+
+            <ActivityIndicator x:Name="LoadingIndicator"
+                               IsRunning="True"
+                               Color="{StaticResource Accent}"
+                               HeightRequest="40"
+                               HorizontalOptions="Center" />
+
+            <!-- Identificação -->
+            <Frame x:Name="SectionId"
+                   BackgroundColor="{StaticResource BgCard}"
+                   BorderColor="{StaticResource Border}"
+                   CornerRadius="12" Padding="18" HasShadow="False" IsVisible="False">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="🏷️ Identificação do Notebook" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                    <BoxView Color="{StaticResource Border}" HeightRequest="1" />
+                    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                        <Label Grid.Row="0" Text="Fabricante:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                        <Label Grid.Row="0" Grid.Column="1" x:Name="LblManufacturer" TextColor="{StaticResource Accent}" FontSize="14" FontAttributes="Bold" />
+                        <Label Grid.Row="1" Text="Modelo:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                        <Label Grid.Row="1" Grid.Column="1" x:Name="LblModel" TextColor="{StaticResource TextPrimary}" FontSize="13" />
+                        <Label Grid.Row="2" Text="Família / SKU:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                        <Label Grid.Row="2" Grid.Column="1" x:Name="LblFamilySku" TextColor="{StaticResource TextPrimary}" FontSize="13" />
+                        <Label Grid.Row="3" Text="Placa-mãe:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                        <Label Grid.Row="3" Grid.Column="1" x:Name="LblBaseBoard" TextColor="{StaticResource TextPrimary}" FontSize="13" />
+                        <Label Grid.Row="4" Text="Service Tag / Serial:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                        <Label Grid.Row="4" Grid.Column="1" x:Name="LblSerial" TextColor="{StaticResource Success}" FontSize="14" FontAttributes="Bold" />
+                        <Label Grid.Row="5" Text="Ferramenta OEM:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                        <Label Grid.Row="5" Grid.Column="1" x:Name="LblTool" TextColor="{StaticResource TextPrimary}" FontSize="13" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Ações -->
+            <Frame x:Name="SectionActions"
+                   BackgroundColor="{StaticResource BgCard}"
+                   BorderColor="{StaticResource Border}"
+                   CornerRadius="12" Padding="18" HasShadow="False" IsVisible="False">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="🔧 Ações Rápidas" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                    <BoxView Color="{StaticResource Border}" HeightRequest="1" />
+
+                    <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Center">
+                        <Button x:Name="BtnOemScan" Text="🔍 Escanear (OEM)" Clicked="OnOemScanClicked"
+                                BackgroundColor="{StaticResource Accent}" TextColor="{StaticResource White}"
+                                CornerRadius="8" HeightRequest="42" Margin="0,0,10,10" Padding="16,0" />
+                        <Button x:Name="BtnOemApply" Text="⬇️ Instalar / Aplicar (OEM)" Clicked="OnOemApplyClicked"
+                                BackgroundColor="{StaticResource Success}" TextColor="{StaticResource White}"
+                                CornerRadius="8" HeightRequest="42" Margin="0,0,10,10" Padding="16,0" />
+                        <Button Text="📋 Copiar Serial / ID" Clicked="OnCopySerialClicked"
+                                BackgroundColor="{StaticResource BgInput}" TextColor="{StaticResource TextPrimary}"
+                                BorderColor="{StaticResource Border}" BorderWidth="1"
+                                CornerRadius="8" HeightRequest="42" Margin="0,0,10,10" Padding="16,0" />
+                        <Button Text="🌐 Abrir Suporte Oficial" Clicked="OnOpenSupportClicked"
+                                BackgroundColor="{StaticResource BgInput}" TextColor="{StaticResource TextPrimary}"
+                                BorderColor="{StaticResource Border}" BorderWidth="1"
+                                CornerRadius="8" HeightRequest="42" Margin="0,0,10,10" Padding="16,0" />
+                        <Button Text="🪟 Buscar Drivers (Windows Update)" Clicked="OnWindowsUpdateClicked"
+                                BackgroundColor="{StaticResource BgInput}" TextColor="{StaticResource TextPrimary}"
+                                BorderColor="{StaticResource Border}" BorderWidth="1"
+                                CornerRadius="8" HeightRequest="42" Margin="0,0,10,10" Padding="16,0" />
+                    </FlexLayout>
+
+                    <Label x:Name="LblStatus" FontSize="12" TextColor="{StaticResource TextSecondary}" IsVisible="False" />
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Dispositivos com falha -->
+            <Frame x:Name="SectionProblems"
+                   BackgroundColor="{StaticResource BgCard}"
+                   BorderColor="{StaticResource Border}"
+                   CornerRadius="12" Padding="18" HasShadow="False" IsVisible="False">
+                <VerticalStackLayout Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label x:Name="LblProblemsTitle" Text="⚠️ Dispositivos com Falha de Driver" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                        <Button Grid.Column="1" Text="↻ Atualizar" Clicked="OnRefreshProblemsClicked"
+                                BackgroundColor="{StaticResource BgInput}" TextColor="{StaticResource TextPrimary}"
+                                CornerRadius="8" HeightRequest="32" FontSize="12" Padding="12,0" />
+                    </Grid>
+                    <BoxView Color="{StaticResource Border}" HeightRequest="1" />
+                    <Label x:Name="LblNoProblems" Text="✅ Nenhum dispositivo com falha de driver detectado." TextColor="{StaticResource Success}" FontSize="13" IsVisible="False" />
+                    <CollectionView x:Name="ProblemList" ItemSizingStrategy="MeasureAllItems">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame BackgroundColor="{StaticResource BgInput}"
+                                       BorderColor="{StaticResource Warning}"
+                                       CornerRadius="8" Padding="12" Margin="0,4" HasShadow="False">
+                                    <VerticalStackLayout Spacing="3">
+                                        <Label Text="{Binding Display}" TextColor="{StaticResource TextPrimary}" FontSize="13" FontAttributes="Bold" />
+                                        <Label Text="{Binding HardwareId}" TextColor="{StaticResource TextSecondary}" FontSize="11" />
+                                    </VerticalStackLayout>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Frame>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

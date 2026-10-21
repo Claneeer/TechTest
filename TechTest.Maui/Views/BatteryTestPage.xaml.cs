@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using Microsoft.Maui.Controls;
 using TechTest.Maui.Services;
@@ -12,7 +12,8 @@ namespace TechTest.Maui.Views
 
         public BatteryTestPage()
         {
-            InitializeComponent();
+            InitializeComponent();
+            TechTest.Maui.Controls.ApprovalBar.Attach(this, TechTest.Maui.Services.TestId.Battery);
 
             var batteryService = IPlatformApplication.Current?.Services?.GetService<IBatteryService>();
             _viewModel = new BatteryTestViewModel(batteryService);

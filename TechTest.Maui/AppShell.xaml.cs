@@ -7,10 +7,6 @@ public partial class AppShell : Shell
     public AppShell()
     {
         InitializeComponent();
-
-        Routing.RegisterRoute(nameof(SpecsPage), typeof(SpecsPage));
-        Routing.RegisterRoute(nameof(CameraTestPage), typeof(CameraTestPage));
-        Routing.RegisterRoute(nameof(DeadPixelTestPage), typeof(DeadPixelTestPage));
-        Routing.RegisterRoute(nameof(TouchpadTestPage), typeof(TouchpadTestPage));
+        // Rotas das páginas secundárias são declaradas como ShellContent em AppShell.xaml
     }
 }
