@@ -56,6 +56,13 @@ namespace TechTest.Maui.Controls
             InvalidateSurface();
         }
 
+        /// <summary>Troca o canal ativo em tempo real e redesenha imediatamente.</summary>
+        public void SetActiveChannel(AudioChannel channel)
+        {
+            _activeChannel = channel;
+            InvalidateSurface();
+        }
+
         private void OnPaintSurface(object sender, SKPaintSurfaceEventArgs e)
         {
             var canvas = e.Surface.Canvas;

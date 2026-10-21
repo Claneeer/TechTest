@@ -1,0 +1,88 @@
+﻿{
+  "generatedAt": "2026-10-21 08:04:48",
+  "technician": "pedro.ivoc",
+  "notes": "",
+  "verdict": "APROVADO",
+  "machine": {
+    "Manufacturer": "Desconhecido",
+    "Model": "Desconhecido",
+    "SystemFamily": "",
+    "SystemSku": "",
+    "serialNumber": "HQ7B6V3",
+    "baseBoard": "Dell Inc. 04FF21",
+    "MachineName": "T20019322085886",
+    "OSVersion": "Windows 10.0.26200.0"
+  },
+  "hardware": {
+    "cpu": "12th Gen Intel Core i7-12700",
+    "ram": "32,0 GB",
+    "gpus": [
+      "Intel(R) UHD Graphics 770"
+    ],
+    "resolution": "1920 x 1080",
+    "refreshRateHz": 60
+  },
+  "storage": [
+    {
+      "Name": "C: Windows",
+      "Type": "NVMe",
+      "total": "471,6 GB",
+      "free": "185,1 GB",
+      "format": "NTFS"
+    }
+  ],
+  "diskHealth": [
+    {
+      "Name": "NVMe IM2P33F3A NVMe ADATA 512GB",
+      "MediaType": "NVMe",
+      "HealthStatus": "Saudável",
+      "healthPercent": null,
+      "temperatureC": null,
+      "powerOnHours": null
+    }
+  ],
+  "battery": {
+    "DesignCapacity": "Não disponível",
+    "FullChargeCapacity": "Não disponível",
+    "Health": "Não disponível",
+    "CycleCount": "Não disponível",
+    "Manufacturer": "Não disponível"
+  },
+  "tests": [
+    {
+      "id": "Keyboard",
+      "name": "Teclado",
+      "status": "Aprovado"
+    },
+    {
+      "id": "Touchpad",
+      "name": "Touchpad",
+      "status": "Aprovado"
+    },
+    {
+      "id": "DeadPixel",
+      "name": "Pixel Morto",
+      "status": "Aprovado"
+    },
+    {
+      "id": "Camera",
+      "name": "Webcam",
+      "status": "Aprovado"
+    },
+    {
+      "id": "Microphone",
+      "name": "Microfone",
+      "status": "Aprovado"
+    },
+    {
+      "id": "Audio",
+      "name": "Alto-falantes",
+      "status": "Aprovado"
+    },
+    {
+      "id": "Battery",
+      "name": "Bateria",
+      "status": "Aprovado"
+    }
+  ]
+}

@@ -106,7 +106,11 @@ public class AudioTestViewModel : BaseViewModel
             ActiveChannel = channel;
             var type = (SoundType)SoundType;
 
-            _playbackService.PlayTone(Frequency, channel, type, Volume);
+            // Já tocando: apenas troca o canal em tempo real, sem parar o som
+            if (IsPlaying && _playbackService.IsPlaying)
+                _playbackService.SetChannel(channel);
+            else
+                _playbackService.PlayTone(Frequency, channel, type, Volume);
             IsPlaying = true;
 
             string chText = channel switch

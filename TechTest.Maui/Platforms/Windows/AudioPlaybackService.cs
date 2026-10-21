@@ -109,6 +109,17 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         }
     }
 
+    public void SetChannel(AudioChannel channel)
+    {
+        _currentChannel = channel;
+
+        // Ajusta L/R no provider em andamento: troca instantânea, sem reiniciar o stream
+        if (_stereoProvider != null)
+        {
+            ApplyChannelRouting(_stereoProvider, channel);
+        }
+    }
+
     private SignalGeneratorType MapSoundType(SoundType type)
     {
         return type switch

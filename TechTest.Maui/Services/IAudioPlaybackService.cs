@@ -27,4 +27,6 @@ public interface IAudioPlaybackService : IDisposable
     void StopTone();
     void SetFrequency(double frequency);
     void SetVolume(double volume);
+    /// <summary>Troca Esquerdo/Direito/Ambos em tempo real durante a reprodução.</summary>
+    void SetChannel(AudioChannel channel);
 }

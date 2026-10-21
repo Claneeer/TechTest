@@ -62,14 +62,14 @@
                     <Label Text="Sequência de Cores:" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource Accent}" HorizontalTextAlignment="Center" />
                     
                     <FlexLayout JustifyContent="Center" AlignItems="Center" Wrap="Wrap">
+                        <Frame BackgroundColor="Black" BorderColor="Gray" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
+                        <Frame BackgroundColor="White" BorderColor="Gray" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
                         <Frame BackgroundColor="Red" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
                         <Frame BackgroundColor="Green" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
                         <Frame BackgroundColor="Blue" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
-                        <Frame BackgroundColor="White" BorderColor="Gray" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
-                        <Frame BackgroundColor="Black" BorderColor="Gray" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
-                        <Frame BackgroundColor="Yellow" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
-                        <Frame BackgroundColor="Magenta" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
                         <Frame BackgroundColor="Cyan" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
+                        <Frame BackgroundColor="Magenta" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
+                        <Frame BackgroundColor="Yellow" WidthRequest="30" HeightRequest="30" Margin="5" Padding="0" HasShadow="False" CornerRadius="5" />
                     </FlexLayout>
 
                     <Button Text="Iniciar Teste em Tela Cheia"
@@ -105,6 +105,7 @@
               VerticalOptions="FillAndExpand">
             <Grid.GestureRecognizers>
                 <TapGestureRecognizer Tapped="OnFullscreenTapped" />
+                <PointerGestureRecognizer PointerMoved="OnFullscreenPointerMoved" />
             </Grid.GestureRecognizers>
 
             <!-- Background Fill Color -->
@@ -137,6 +138,25 @@
                        FontAttributes="Bold"
                        HorizontalTextAlignment="Center" />
             </Border>
+
+            <!-- Botão de saída: aparece ao mover o mouse -->
+            <Button x:Name="BtnClose"
+                    Text="✕"
+                    Clicked="OnCloseClicked"
+                    HorizontalOptions="End"
+                    VerticalOptions="Start"
+                    Margin="20"
+                    WidthRequest="48"
+                    HeightRequest="48"
+                    Padding="0"
+                    CornerRadius="24"
+                    FontSize="20"
+                    FontAttributes="Bold"
+                    TextColor="White"
+                    BackgroundColor="#CC0A0A14"
+                    BorderColor="#9494B8"
+                    BorderWidth="1"
+                    IsVisible="False" />
         </Grid>
     </Grid>
 </ContentPage>

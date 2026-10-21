@@ -108,6 +108,16 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         }
     }
 
+    public void SetChannel(AudioChannel channel)
+    {
+        _currentChannel = channel;
+
+        if (_isPlaying)
+        {
+            PlayTone(_currentFrequency, _currentChannel, _currentSoundType, _currentVolume);
+        }
+    }
+
     private byte[] GenerateWavData(double frequency, AudioChannel channel,
         SoundType type, double volume, double durationSeconds)
     {

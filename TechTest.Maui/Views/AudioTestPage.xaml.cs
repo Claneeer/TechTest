@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.Maui.Controls;
 using TechTest.Maui.Services;
 using TechTest.Maui.ViewModels;
@@ -34,6 +34,9 @@ namespace TechTest.Maui.Views
                             SpeakerView.SetPlayingState(
                                 _viewModel.IsPlaying,
                                 _viewModel.ActiveChannel);
+                            break;
+                        case nameof(_viewModel.ActiveChannel):
+                            SpeakerView.SetActiveChannel(_viewModel.ActiveChannel);
                             break;
                     }
                 });
