@@ -343,6 +343,43 @@
                         </Grid>
                     </Frame>
 
+                    <!-- Card: Atualizador de Drivers OEM -->
+                    <Frame BackgroundColor="{StaticResource BgCard}"
+                           BorderColor="{StaticResource Border}"
+                           CornerRadius="14"
+                           WidthRequest="220"
+                           HeightRequest="175"
+                           Margin="10"
+                           Padding="0"
+                           HasShadow="False"
+                           x:Name="CardDrivers">
+                        <Frame.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnDriversCardTapped" />
+                            <PointerGestureRecognizer PointerEntered="OnCardPointerEntered"
+                                                      PointerExited="OnCardPointerExited" />
+                        </Frame.GestureRecognizers>
+                        <Grid RowDefinitions="Auto,Auto,Auto"
+                              Padding="15"
+                              RowSpacing="6"
+                              VerticalOptions="Center">
+                            <Label Grid.Row="0"
+                                   Text="🛠"
+                                   FontSize="40"
+                                   HorizontalTextAlignment="Center" />
+                            <Label Grid.Row="1"
+                                   Text="Atualizador de Drivers OEM"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextPrimary}" />
+                            <Label Grid.Row="2"
+                                   Text="Dell, HP, Lenovo e outros"
+                                   FontSize="11"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="{StaticResource TextSecondary}" />
+                        </Grid>
+                    </Frame>
+
                 </FlexLayout>
             </Grid>
         </ScrollView>
@@ -352,7 +389,7 @@
               BackgroundColor="{StaticResource BgDark}"
               HeightRequest="50"
               Padding="15,0"
-              ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+               ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto">
 
             <!-- System info label -->
             <Label x:Name="LblSysInfo"
@@ -363,9 +400,37 @@
                    VerticalTextAlignment="Center"
                    LineBreakMode="TailTruncation" />
 
+            <!-- Diagnóstico sequencial -->
+            <Button x:Name="BtnSequential"
+                    Grid.Column="1"
+                    Text="▶️ Iniciar Diagnóstico Sequencial"
+                    BackgroundColor="{StaticResource Accent}"
+                    TextColor="{StaticResource White}"
+                    FontSize="11"
+                    CornerRadius="4"
+                    HeightRequest="34"
+                    Padding="12,0"
+                    Margin="5,0"
+                    Clicked="OnStartSequentialClicked" />
+
+            <!-- Laudo técnico -->
+            <Button x:Name="BtnReport"
+                    Grid.Column="2"
+                    Text="📄 Exportar Laudo Técnico"
+                    BackgroundColor="{StaticResource BgCard}"
+                    TextColor="{StaticResource TextPrimary}"
+                    FontSize="11"
+                    BorderColor="{StaticResource Border}"
+                    BorderWidth="1"
+                    CornerRadius="4"
+                    HeightRequest="34"
+                    Padding="12,0"
+                    Margin="5,0"
+                    Clicked="OnExportReportClicked" />
+
             <!-- FurMark button (Windows only) -->
             <Button x:Name="BtnFurMark"
-                    Grid.Column="1"
+                    Grid.Column="3"
                     Text="🔥 FurMark Stress"
                     BackgroundColor="{StaticResource BgCard}"
                     TextColor="{StaticResource TextPrimary}"
@@ -386,7 +451,7 @@
             </Button>
 
             <!-- Scale label -->
-            <Label Grid.Column="2"
+            <Label Grid.Column="4"
                    Text="🖥 Ajustar Tela:"
                    FontSize="11"
                    TextColor="{StaticResource TextSecondary}"
@@ -395,7 +460,7 @@
 
             <!-- Scale picker -->
             <Picker x:Name="PickerScale"
-                    Grid.Column="3"
+                    Grid.Column="5"
                     WidthRequest="130"
                     HeightRequest="34"
                     FontSize="11"

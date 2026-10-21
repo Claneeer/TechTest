@@ -267,7 +267,14 @@ public class KeyboardCanvasView : SKCanvasView
             "F9" => "F9", "F10" => "F10", "F11" => "F11", "F12" => "F12",
             "PrintScreen" or "Snapshot" => "PrtSc",
             "Delete" => "Del",
-            "OemQuotes" or "Oem3" or "OemTilde" => "'",
+            "Oem3" or "192" or "OemTilde" => "'",
+            "186" => "Ç",
+            "193" or "AbntC1" => "Abnt/",
+            "226" => "|",
+            "219" => "[",
+            "221" => "]",
+            "220" => "\\",
+            "222" => "~",
             "D1" or "1" => "1", "D2" or "2" => "2", "D3" or "3" => "3",
             "D4" or "4" => "4", "D5" or "5" => "5", "D6" or "6" => "6",
             "D7" or "7" => "7", "D8" or "8" => "8", "D9" or "9" => "9",
@@ -279,13 +286,13 @@ public class KeyboardCanvasView : SKCanvasView
             "Q" => "Q", "W" => "W", "E" => "E", "R" => "R", "T" => "T",
             "Y" => "Y", "U" => "U", "I" => "I", "O" => "O", "P" => "P",
             "OemOpenBrackets" or "Oem4" => "[",
-            "OemCloseBrackets" or "Oem6" or "Oem1" when platformKey == "Oem6" => "]",
+            "OemCloseBrackets" or "Oem6" => "]",
             "Return" or "Enter" => "Enter",
             "CapsLock" or "Capital" => "Caps",
             "A" => "A", "S" => "S", "D" => "D", "F" => "F", "G" => "G",
             "H" => "H", "J" => "J", "K" => "K", "L" => "L",
             "Oem1" or "OemSemicolon" => "Ç",
-            "Oem7" or "OemQuotes2" => "~",
+            "Oem7" or "OemQuotes" or "OemQuotes2" => "~",
             "Oem5" or "OemPipe" => "\\",
             "LShiftKey" or "LeftShift" => "LShift",
             "RShiftKey" or "RightShift" => "RShift",
@@ -295,7 +302,7 @@ public class KeyboardCanvasView : SKCanvasView
             "N" => "N", "M" => "M",
             "OemComma" or "Oemcomma" => ",",
             "OemPeriod" => ".",
-            "OemQuestion" or "Oem2" => "/",
+            "OemQuestion" or "Oem2" or "191" => "/",
             "LControlKey" or "LeftCtrl" or "LeftControl" => "LCtrl",
             "RControlKey" or "RightCtrl" or "RightControl" => "RCtrl",
             "ControlKey" or "Ctrl" or "Control" => "LCtrl", // fallback
@@ -368,7 +375,7 @@ public class KeyboardCanvasView : SKCanvasView
             K("Q", 1f, "Q"), K("W", 1f, "W"), K("E", 1f, "E"), K("R", 1f, "R"),
             K("T", 1f, "T"), K("Y", 1f, "Y"), K("U", 1f, "U"), K("I", 1f, "I"),
             K("O", 1f, "O"), K("P", 1f, "P"),
-            K("[", 1f, "["), K("]", 1f, "]"),
+            K("´", 1f, "["), K("[", 1f, "]"),
             K("Enter", 1.5f, "Enter"),
         });
 
@@ -379,18 +386,18 @@ public class KeyboardCanvasView : SKCanvasView
             K("A", 1f, "A"), K("S", 1f, "S"), K("D", 1f, "D"), K("F", 1f, "F"),
             K("G", 1f, "G"), K("H", 1f, "H"), K("J", 1f, "J"), K("K", 1f, "K"),
             K("L", 1f, "L"), K("Ç", 1f, "Ç"),
-            K("~", 1f, "~"), K("\\", 1f, "\\"),
+            K("~", 1f, "~"), K("]", 1f, "\\"),
         });
 
         // Row 4: Shift row
         _rows.Add(new List<KeyDef>
         {
             K("Shift", 1.3f, "LShift"),
-            K("|", 1f, "|"),
+            K("\\", 1f, "|"),
             K("Z", 1f, "Z"), K("X", 1f, "X"), K("C", 1f, "C"), K("V", 1f, "V"),
             K("B", 1f, "B"), K("N", 1f, "N"), K("M", 1f, "M"),
-            K(",", 1f, ","), K(".", 1f, "."), K("/", 1f, "/"),
-            K("Shift", 2.7f, "RShift"),
+            K(",", 1f, ","), K(".", 1f, "."), K(";", 1f, "/"), K("/", 1f, "Abnt/"),
+            K("Shift", 1.7f, "RShift"),
         });
 
         // Row 5: Bottom row (arrows are handled separately)
@@ -479,36 +486,44 @@ public class KeyboardCanvasView : SKCanvasView
 
         float canvasW = info.Width;
         float canvasH = info.Height;
+        if (canvasW <= 0 || canvasH <= 0) return;
 
-        // Calculate key size based on available space
-        // Total row width units for longest row (row 1 has ~15 units)
-        float totalRowUnits = 15f; // approximate
-        float padding = 10f;
-        float gap = 3f;
+        // Layout em unidades lógicas fixas; depois o canvas inteiro é escalado
+        // para ocupar 95% da largura e da altura disponíveis (mantendo proporção).
+        const float ks = 44f;
+        const float gap = 3f;
+        const float padding = 0f;
+        const float numpadGap = 15f;
 
-        // Calculate available width for the main keyboard
-        float numpadTotalUnits = HasNumpad ? 4f : 0f;
-        float numpadSepWidth = HasNumpad ? 25f : 0f;
-
-        // We have 6 main rows + need to fit
-        float availW = canvasW - padding * 2f - numpadSepWidth - (HasNumpad ? (numpadTotalUnits * 40f + 5 * gap) : 0f);
-        float ks = (availW - totalRowUnits * gap) / totalRowUnits;
-        ks = Math.Min(ks, 44f); // cap key size
-        ks = Math.Max(ks, 20f); // minimum
-
-        // Recalculate with actual row widths to fit properly
-        float maxUnits = 0;
+        float mainW = 0f;
         foreach (var row in _rows)
         {
-            float rowUnits = 0;
-            foreach (var key in row)
-                rowUnits += key.WidthFactor;
-            if (rowUnits > maxUnits) maxUnits = rowUnits;
+            float rw = 0f;
+            foreach (var key in row) rw += key.WidthFactor * ks + gap;
+            if (rw > mainW) mainW = rw;
         }
 
-        ks = (availW - maxUnits * gap) / maxUnits;
-        ks = Math.Min(ks, 44f);
-        ks = Math.Max(ks, 20f);
+        float numW = 0f;
+        if (HasNumpad)
+        {
+            foreach (var row in _numpadRows)
+            {
+                float rw = 0f;
+                foreach (var key in row) rw += key.WidthFactor * ks + gap;
+                if (rw > numW) numW = rw;
+            }
+        }
+
+        float logicalW = mainW + (HasNumpad ? numpadGap + numW : 0f);
+        float logicalH = _rows.Count * (ks + gap);
+
+        float scaleX = canvasW * 0.95f / logicalW;
+        float scaleY = canvasH * 0.95f / logicalH;
+        float scale = Math.Min(scaleX, scaleY);
+
+        canvas.Save();
+        canvas.Translate((canvasW - logicalW * scale) / 2f, (canvasH - logicalH * scale) / 2f);
+        canvas.Scale(scale);
 
         // Calculate bounds for all keys
         float offsetY = padding;
@@ -614,6 +629,7 @@ public class KeyboardCanvasView : SKCanvasView
                 numOffsetY += ks + gap;
             }
         }
+        canvas.Restore();
     }
 
     private void DrawKey(SKCanvas canvas, KeyDef key, float ks, float gap)

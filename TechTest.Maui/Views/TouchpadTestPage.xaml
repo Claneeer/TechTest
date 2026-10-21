@@ -96,6 +96,23 @@
 
         <!-- Event Checklist badges + ghost result -->
         <VerticalStackLayout Grid.Row="2" Spacing="8" Margin="0,0,0,12">
+            <HorizontalStackLayout Spacing="10">
+                <Switch x:Name="SwitchPrecision"
+                        IsToggled="True"
+                        OnColor="{StaticResource Accent}"
+                        VerticalOptions="Center" />
+                <Label x:Name="LblMode"
+                       Text="Modo Precisão (Sensor Físico Absoluto)"
+                       FontSize="13"
+                       FontAttributes="Bold"
+                       VerticalOptions="Center"
+                       TextColor="{StaticResource TextPrimary}" />
+                <Label x:Name="LblModeStatus"
+                       Text=""
+                       FontSize="12"
+                       VerticalOptions="Center"
+                       TextColor="{StaticResource TextSecondary}" />
+            </HorizontalStackLayout>
             <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Center">
                 <Border x:Name="BadgeLeft" StrokeShape="RoundRectangle 16" StrokeThickness="1.5" Padding="14,6" Margin="0,0,8,6">
                     <Label x:Name="LblBadgeLeft" Text="🖱️ Clique Esquerdo" FontSize="12" FontAttributes="Bold" />

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Microsoft.Maui.Controls;
@@ -39,15 +39,44 @@ namespace TechTest.Maui.Views
         private static readonly Color BadgeOnStroke = Color.FromArgb("#22C55E");
         private static readonly Color BadgeOnText = Color.FromArgb("#4ADE80");
 
+        // true  = Modo Precisão (coordenadas físicas absolutas via Raw Input / HID)
+        // false = Modo Cursor (touchpad PS/2 legado: cursor preso ao canvas)
+        private bool _precisionMode = true;
+
+        partial void ApplyInputMode();
+        partial void ReleaseInputMode();
+
         public TouchpadTestPage()
         {
             InitializeComponent();
             TechTest.Maui.Controls.ApprovalBar.Attach(this, TechTest.Maui.Services.TestId.Touchpad);
             ResetTest();
+            SwitchPrecision.Toggled += OnModeToggled;
 
 #if WINDOWS
             CanvasTouch.HandlerChanged += OnCanvasHandlerChanged;
+#else
+            _precisionMode = false;
+            SwitchPrecision.IsToggled = false;
+            SwitchPrecision.IsEnabled = false;
+            LblModeStatus.Text = "Raw Input disponível apenas no Windows.";
 #endif
+        }
+
+        private void OnModeToggled(object? sender, ToggledEventArgs e)
+        {
+            _precisionMode = e.Value;
+            LblMode.Text = _precisionMode
+                ? "Modo Precisão (Sensor Físico Absoluto)"
+                : "Modo Cursor (Touchpad PS/2 Legado)";
+            ResetTest();
+            ApplyInputMode();
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            ApplyInputMode();
         }
 
         #region Reset / Stats
@@ -140,17 +169,24 @@ namespace TechTest.Maui.Views
                         else if (e.MouseButton == SKMouseButton.Right) _right = true;
                     }
 
-                    _currentPath = new List<SKPoint> { location };
-                    _paths.Add(_currentPath);
-                    MarkGridCell(location.X, location.Y, canvasW, canvasH);
+                    if (!_precisionMode)
+                    {
+                        _currentPath = new List<SKPoint> { location };
+                        _paths.Add(_currentPath);
+                        MarkGridCell(location.X, location.Y, canvasW, canvasH);
+                    }
                     e.Handled = true;
                     break;
 
                 case SKTouchAction.Moved:
                     // Hover (sem botão) também marca blocos: o objetivo é varrer a superfície
-                    MarkGridCell(location.X, location.Y, canvasW, canvasH);
-                    if (_currentPath != null && e.InContact)
-                        _currentPath.Add(location);
+                    // Modo Precisão: ignora o cursor (e mouses USB); o grid vem do sensor físico
+                    if (!_precisionMode)
+                    {
+                        MarkGridCell(location.X, location.Y, canvasW, canvasH);
+                        if (_currentPath != null && e.InContact)
+                            _currentPath.Add(location);
+                    }
                     if (e.DeviceType == SKTouchDeviceType.Touch && _activeTouchIds.Count >= 2)
                         _multi = true;
                     e.Handled = true;
@@ -447,6 +483,7 @@ namespace TechTest.Maui.Views
         protected override void OnDisappearing()
         {
             base.OnDisappearing();
+            ReleaseInputMode();
             ResetTest();
         }
     }

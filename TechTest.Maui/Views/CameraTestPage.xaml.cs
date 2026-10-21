@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,7 +38,7 @@ namespace TechTest.Maui.Views
                     LblPermission.Text = "Sem Hardware";
                     LblPermission.TextColor = Color.FromArgb("#EF4444");
                     LblDevice.Text = "Nenhuma Webcam";
-                    LblPlaceholderTitle.Text = "Nenhuma Câmera Encontrada";
+                    LblPlaceholderTitle.Text = "Nenhuma webcam detectada";
                     LblPlaceholderDesc.Text = "Não há webcam conectada ou reconhecida pelo Windows neste computador.";
                     BtnStartCamera.IsEnabled = true;
                     return;
@@ -90,7 +90,7 @@ namespace TechTest.Maui.Views
 
                     LblDevice.Text = camera?.Name ?? "Câmera Padrão";
                     var res = camera?.SupportedResolutions?.FirstOrDefault();
-                    LblResolution.Text = res != null ? $"{res.Width}x{res.Height}" : "Automática";
+                    LblResolution.Text = res.HasValue ? $"{res.Value.Width}x{res.Value.Height}" : "Automática";
 
                     await _camView.StartCameraPreview(_cts.Token);
                     BtnStopCamera.IsEnabled = true;

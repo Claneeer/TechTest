@@ -19,8 +19,8 @@ O **TechTest** resolve esse gargalo padronizando um **fluxo guiado de inspeção
 ## ⚙️ Quais funcionalidades existem
 
 * **📊 Especificações e Saúde S.M.A.R.T. (`SpecsPage`):** Coleta detalhada de CPU, GPU, RAM, Placa-Mãe, BIOS/Serial e leitura de indicadores físicos dos discos (Saúde em %, Temperatura e Horas de Uso).
-* **⌨️ Teste de Teclado com Detecção de Chattering (`KeyboardTestPage`):** Renderização visual do layout do teclado em Canvas, barra superior com histórico das últimas teclas pressionadas, contador de *Key Rollover* (teclas simultâneas) e alerta em milissegundos para *Key Chattering* (duplo disparo involuntário por falha mecânica).
-* **🖱️ Scanner de Superfície de Touchpad (`TouchpadTestPage`):** Mapeamento em grade (*Dead Zone Grid Scanner*) para validar 100% da área útil de toque, checklist de gestos (cliques esquerdo/direito, scroll multi-toque) e detector de *Ghost Touch* (toque fantasma).
+* **⌨️ Teste de Teclado com Detecção de Chattering (`KeyboardTestPage`):** Layout ABNT2 desenhado em SkiaSharp que escala para 95% da área disponível, diferencia Shift/Ctrl/Alt esquerdo e direito (AltGr), mapeia toda a pontuação ABNT2 (Ç, `/ ?`, `\ |`, etc.), impede que Tab/Espaço/Enter/Alt/F10 roubem o foco, e exibe histórico, *Key Rollover* e alerta em ms para *Key Chattering* (duplo disparo por falha mecânica).
+* **🖱️ Scanner Absoluto de Touchpad (`TouchpadTestPage`):** Lê as **coordenadas físicas absolutas** do Precision Touchpad via Win32 *Raw Input* (HID `UsagePage 0x0D / Usage 0x05`) e normaliza (`LogicalMin..LogicalMax` → `0.0..1.0`) para uma grade 15x10 de zonas mortas — independente da posição do cursor e ignorando mouses USB. Alterna para o **Modo Cursor (PS/2 legado)**, que prende o cursor ao canvas (ESC libera). Inclui checklist de gestos e detector de *Ghost Touch*.
 * **🔋 Diagnóstico de Bateria (`BatteryTestPage`):** Monitoramento gráfico de carga, status de alimentação AC/DC, tensão, taxa de descarga, capacidade de projeto (*Design Capacity*) vs. capacidade real (*Full Charge Capacity*) e cálculo de nível de desgaste (*Wear Level*).
 * **🔊 Teste de Áudio Estéreo (`AudioTestPage`):** Geração de ondas sonoras e teste independente de canais (Esquerdo, Direito e Ambos) com animação em Canvas (`SpeakerCanvasView`).
 * **🎙️ Teste de Microfone com Osciloscópio (`MicrophoneTestPage`):** Captura de áudio em tempo real com renderização da forma de onda (`WaveformCanvasView`), medidor de pico em dB e loopback para audição.
@@ -35,11 +35,11 @@ O **TechTest** resolve esse gargalo padronizando um **fluxo guiado de inspeção
 
 * **Linguagem:** C# 12 / .NET 8 e .NET 9
 * **Frameworks de Interface:**
-  * **.NET MAUI (WinUI 3 & MacCatalyst):** Interface moderna multiplataforma com desenho acelerado via `Microsoft.Maui.Graphics` (`ICanvas` / `GraphicsView`).
+  * **.NET MAUI (WinUI 3 & MacCatalyst):** Interface moderna multiplataforma com desenho acelerado via **SkiaSharp** (`SKCanvasView`) e `CommunityToolkit.Maui` (câmera).
   * **Windows Forms (`TechTest` legado):** Versão desktop leve exclusiva para Windows com GDI+.
 * **Arquitetura e Padrões:** MVVM (*Model-View-ViewModel*), Injeção de Dependência (DI) nativa com `Microsoft.Extensions.DependencyInjection`, Serviços Abstratos por Plataforma (`IHardwareInfoService`, `IBatteryService`, `IAudioCaptureService`, `IAudioPlaybackService`).
 * **APIs de Sistema e Hardware:**
-  * **Windows:** WMI (`System.Management` — `Win32_*`, `MSFT_PhysicalDisk`), `NAudio` / Windows Audio Session API (WASAPI), Win32 Power APIs e `winget` CLI.
+  * **Windows:** WMI (`System.Management` — `Win32_*`, `MSFT_PhysicalDisk`), **Win32 Raw Input / HID** (`user32.dll`, `hid.dll`), `NAudio` / WASAPI, Win32 Power APIs e `winget` CLI.
   * **macOS (MacCatalyst):** `IOKit`, `system_profiler`, `AVFoundation` (captura e reprodução de áudio nativo).
 * **Testes Automatizados:** xUnit (`TechTest.Tests`).
 
@@ -61,3 +61,27 @@ dotnet restore TechTest.slnx
 # 2. Compilar e rodar no Windows (Unpackaged)
 dotnet build TechTest.Maui/TechTest.Maui.csproj -f net8.0-windows10.0.19041.0
 dotnet run --project TechTest.Maui/TechTest.Maui.csproj -f net8.0-windows10.0.19041.0
+
+### Fluxo de uso
+1. Na tela inicial, clique em **▶️ Iniciar Diagnóstico Sequencial** para percorrer todos os testes (aprovar avança para o próximo) ou abra cada card individualmente — cada card mostra o badge *Aprovado / Reprovado / Pendente*.
+2. Ao final, clique em **📄 Exportar Laudo Técnico** para gerar o laudo em HTML (pronto para impressão) e JSON em `Documentos\TechTest\Laudos`.
+
+---
+
+## 📦 Como publicar (versão portátil para pendrive)
+
+```bash
+dotnet publish TechTest.Maui/TechTest.Maui.csproj -f net8.0-windows10.0.19041.0 -c Release -r win-x64 --self-contained true -p:WindowsPackageType=None -p:WindowsAppSDKSelfContained=true -o ./Pendrive_Maui
+```
+
+Copie a pasta `Pendrive_Maui` para o pendrive e execute `TechTest.Maui.exe` em qualquer Windows 10/11 x64, sem instalar runtimes. (Opcional: coloque `FurMark.exe` na mesma pasta para habilitar o botão de stress test.)
+
+---
+
+## 🎯 O que o projeto demonstra tecnicamente
+
+* **Interop nativo no .NET MAUI:** P/Invoke para `user32.dll`/`hid.dll`, subclassing de `WndProc` (`WM_INPUT`), parsing de descritores HID (`HidP_GetValueCaps`, `HidP_GetUsageValue`).
+* **Renderização customizada com SkiaSharp:** layout escalável por transformação de canvas, estados visuais e animações.
+* **Resiliência contra hardware ausente:** enumeração WinRT antes de criar a câmera, sem `Permissions` em apps *Unpackaged*, e handlers globais de exceções (`UnhandledException` / `UnobservedTaskException`).
+* **Integração com o sistema:** WMI, S.M.A.R.T., utilitários OEM e `winget`.
+* **Domínio de QA de bancada:** sessão de testes, modo sequencial e laudo técnico exportável.
