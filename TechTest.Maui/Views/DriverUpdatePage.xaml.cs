@@ -1,3 +1,6 @@
+using System;
+using System.Threading.Tasks;
+using Microsoft.Maui.Controls;
 using TechTest.Maui.Services;
 
 namespace TechTest.Maui.Views;
@@ -5,13 +8,16 @@ namespace TechTest.Maui.Views;
 public partial class DriverUpdatePage : ContentPage
 {
     private readonly IHardwareInfoService? _hardware;
+    private readonly IClipboardService _clipboardService;
     private HardwareSpecs? _specs;
     private OemVendor _vendor = OemVendor.Unknown;
 
     public DriverUpdatePage()
     {
         InitializeComponent();
-        _hardware = IPlatformApplication.Current?.Services?.GetService<IHardwareInfoService>();
+        var services = IPlatformApplication.Current?.Services;
+        _hardware = services?.GetService<IHardwareInfoService>();
+        _clipboardService = services?.GetService<IClipboardService>() ?? new ClipboardService();
     }
 
     protected override async void OnAppearing()
@@ -61,7 +67,7 @@ public partial class DriverUpdatePage : ContentPage
         }
         catch (Exception ex)
         {
-            await DisplayAlert("Erro", $"Erro ao carregar informações:\n{ex.Message}", "OK");
+            await DisplayAlert("Erro", $"Erro ao carregar informações:\n{ex}", "OK");
         }
         finally
         {
@@ -98,23 +104,48 @@ public partial class DriverUpdatePage : ContentPage
 
     private async void OnCopySerialClicked(object? sender, EventArgs e)
     {
-        string text = _specs?.ServiceTag ?? "";
-        await Clipboard.Default.SetTextAsync(text);
-        ShowStatus(new OemActionResult { Success = true, Message = $"Serial/ID copiado: {text}" });
+        try
+        {
+            string rawSn = _specs?.ServiceTag ?? "";
+            string cleanSn = HardwareReportFormatter.CleanSerialNumber(rawSn);
+            if (string.IsNullOrEmpty(cleanSn))
+                cleanSn = rawSn.Trim();
+
+            await _clipboardService.SetTextAsync(cleanSn);
+            ShowStatus(new OemActionResult { Success = true, Message = $"Serial/ID copiado: {cleanSn}" });
+        }
+        catch (Exception ex)
+        {
+            ShowStatus(new OemActionResult { Success = false, Message = $"Erro ao copiar serial: {ex.Message}" });
+            await DisplayAlert("Erro", $"Erro ao copiar para a área de transferência:\n{ex}", "OK");
+        }
     }
 
     private async void OnOpenSupportClicked(object? sender, EventArgs e)
     {
         if (_specs == null) return;
-        // Copia o serial automaticamente para colar na página do fabricante
-        await Clipboard.Default.SetTextAsync(_specs.ServiceTag);
-        string url = OemDriverUpdater.GetSupportUrl(_vendor, _specs.Manufacturer, _specs.Model, _specs.ServiceTag);
-        bool ok = await OemDriverUpdater.OpenSupportPageAsync(url);
-        ShowStatus(new OemActionResult
+
+        try
         {
-            Success = ok,
-            Message = ok ? "Página de suporte aberta (serial copiado para a área de transferência)." : "Não foi possível abrir o navegador."
-        });
+            // Copia o serial limpo automaticamente para colar na página do fabricante
+            string cleanSn = HardwareReportFormatter.CleanSerialNumber(_specs.ServiceTag);
+            if (!string.IsNullOrEmpty(cleanSn))
+            {
+                await _clipboardService.SetTextAsync(cleanSn);
+            }
+
+            string url = OemDriverUpdater.GetSupportUrl(_vendor, _specs.Manufacturer, _specs.Model, _specs.ServiceTag);
+            bool ok = await OemDriverUpdater.OpenSupportPageAsync(url);
+            ShowStatus(new OemActionResult
+            {
+                Success = ok,
+                Message = ok ? "Página de suporte aberta (serial copiado para a área de transferência)." : "Não foi possível abrir o navegador."
+            });
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Erro", $"Erro ao abrir página de suporte:\n{ex}", "OK");
+        }
     }
 
     private void OnWindowsUpdateClicked(object? sender, EventArgs e)

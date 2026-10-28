@@ -270,6 +270,33 @@
                     </VerticalStackLayout>
                 </Frame>
 
+                <!-- Section: Bateria -->
+                <Frame x:Name="SectionBattery"
+                       BackgroundColor="{StaticResource BgCard}"
+                       BorderColor="{StaticResource Border}"
+                       CornerRadius="12"
+                       Padding="18"
+                       HasShadow="False"
+                       IsVisible="False">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="🔋 Bateria e Energia"
+                               FontSize="16"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource TextPrimary}" />
+                        <BoxView Color="{StaticResource Border}" HeightRequest="1" />
+                        <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
+                            <Label Grid.Row="0" Grid.Column="0" Text="Status:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                            <Label Grid.Row="0" Grid.Column="1" x:Name="LblBatteryStatus" Text="—" TextColor="{StaticResource TextPrimary}" FontSize="13" />
+                            <Label Grid.Row="1" Grid.Column="0" Text="Fonte / Carga:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                            <Label Grid.Row="1" Grid.Column="1" x:Name="LblBatteryPower" Text="—" TextColor="{StaticResource TextPrimary}" FontSize="13" />
+                            <Label Grid.Row="2" Grid.Column="0" Text="Saúde da Bateria:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                            <Label Grid.Row="2" Grid.Column="1" x:Name="LblBatteryHealth" Text="—" TextColor="{StaticResource TextPrimary}" FontSize="13" FontAttributes="Bold" />
+                            <Label Grid.Row="3" Grid.Column="0" Text="Capacidade / Ciclos:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
+                            <Label Grid.Row="3" Grid.Column="1" x:Name="LblBatteryCapacity" Text="—" TextColor="{StaticResource TextPrimary}" FontSize="13" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Frame>
+
                 <!-- Section: Service Tag -->
                 <Frame x:Name="SectionServiceTag"
                        BackgroundColor="{StaticResource BgCard}"
@@ -284,9 +311,23 @@
                                FontAttributes="Bold"
                                TextColor="{StaticResource TextPrimary}" />
                         <BoxView Color="{StaticResource Border}" HeightRequest="1" />
-                        <Grid ColumnDefinitions="150,*" RowDefinitions="Auto" RowSpacing="8">
-                            <Label Grid.Row="0" Grid.Column="0" Text="Número de Série:" TextColor="{StaticResource TextSecondary}" FontSize="13" />
-                            <Label Grid.Row="0" Grid.Column="1" x:Name="LblServiceTag" Text="—" TextColor="{StaticResource TextPrimary}" FontSize="13" FontAttributes="Bold" />
+                        <Grid ColumnDefinitions="150,*,Auto" RowDefinitions="Auto" RowSpacing="8" ColumnSpacing="10">
+                            <Label Grid.Row="0" Grid.Column="0" Text="Número de Série:" TextColor="{StaticResource TextSecondary}" FontSize="13" VerticalTextAlignment="Center" />
+                            <Label Grid.Row="0" Grid.Column="1" x:Name="LblServiceTag" Text="—" TextColor="{StaticResource TextPrimary}" FontSize="13" FontAttributes="Bold" VerticalTextAlignment="Center" />
+                            <Button Grid.Row="0"
+                                    Grid.Column="2"
+                                    x:Name="BtnCopySn"
+                                    Text="{Binding CopySnButtonText}"
+                                    Command="{Binding CopySerialNumberCommand}"
+                                    IsEnabled="{Binding IsCopySnEnabled}"
+                                    BackgroundColor="{StaticResource BgPrimary}"
+                                    TextColor="{StaticResource TextPrimary}"
+                                    BorderColor="{StaticResource Accent}"
+                                    BorderWidth="1"
+                                    FontSize="12"
+                                    CornerRadius="8"
+                                    HeightRequest="34"
+                                    Padding="12,0" />
                         </Grid>
                     </VerticalStackLayout>
                 </Frame>
@@ -304,9 +345,53 @@
                         Margin="0,10,0,0"
                         Clicked="OnDriversClicked" />
 
+                <!-- Ferramentas: FurMark + configuração de rede (XML) -->
+                <Frame BackgroundColor="{StaticResource BgCard}"
+                       BorderColor="{StaticResource Border}"
+                       CornerRadius="12"
+                       Padding="18"
+                       HasShadow="False">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="🧪 Ferramentas"
+                               FontSize="16"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource TextPrimary}" />
+                        <BoxView Color="{StaticResource Border}" HeightRequest="1" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <Button x:Name="BtnFurMark"
+                                    Grid.Column="0"
+                                    Text="🔥 Iniciar FurMark"
+                                    BackgroundColor="{StaticResource BgPrimary}"
+                                    TextColor="{StaticResource TextPrimary}"
+                                    BorderColor="{StaticResource Border}"
+                                    BorderWidth="1"
+                                    CornerRadius="8"
+                                    HeightRequest="42"
+                                    Clicked="OnFurMarkClicked" />
+                            <Button x:Name="BtnNetworkXml"
+                                    Grid.Column="1"
+                                    Text="🌐 Config. de Rede (XML)"
+                                    BackgroundColor="{StaticResource BgPrimary}"
+                                    TextColor="{StaticResource TextPrimary}"
+                                    BorderColor="{StaticResource Border}"
+                                    BorderWidth="1"
+                                    CornerRadius="8"
+                                    HeightRequest="42"
+                                    Clicked="OnNetworkConfigClicked" />
+                        </Grid>
+                        <Label x:Name="LblToolStatus"
+                               Text=""
+                               FontSize="12"
+                               IsVisible="False"
+                               TextColor="{StaticResource TextSecondary}" />
+                    </VerticalStackLayout>
+                </Frame>
+
                 <!-- Copy All button -->
                 <Button x:Name="BtnCopyAll"
-                        Text="📋 Copiar Tudo"
+                        Text="{Binding CopyAllButtonText}"
+                        Command="{Binding CopyAllInfoCommand}"
+                        IsEnabled="{Binding IsCopyAllEnabled}"
                         BackgroundColor="{StaticResource Accent}"
                         TextColor="{StaticResource TextPrimary}"
                         FontSize="14"
@@ -315,8 +400,7 @@
                         HeightRequest="48"
                         HorizontalOptions="Fill"
                         Margin="0,10,0,20"
-                        IsVisible="False"
-                        Clicked="OnCopyAllClicked" />
+                        IsVisible="False" />
 
             </VerticalStackLayout>
         </ScrollView>

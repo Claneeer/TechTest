@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using Microsoft.Maui.Controls;
@@ -11,14 +11,12 @@ namespace TechTest.Maui.Views
     {
         private readonly MicrophoneTestViewModel _viewModel;
 
-        public MicrophoneTestPage()
+        public MicrophoneTestPage(MicrophoneTestViewModel viewModel)
         {
             InitializeComponent();
             TechTest.Maui.Controls.ApprovalBar.Attach(this, TechTest.Maui.Services.TestId.Microphone);
 
-            var audioService = IPlatformApplication.Current?.Services?.GetService<IAudioCaptureService>();
-            var audioPlayback = IPlatformApplication.Current?.Services?.GetService<IAudioPlaybackService>();
-            _viewModel = new MicrophoneTestViewModel(audioService, audioPlayback);
+            _viewModel = viewModel;
             BindingContext = _viewModel;
 
             _viewModel.PropertyChanged += (s, e) =>
@@ -58,7 +56,7 @@ namespace TechTest.Maui.Views
                 });
             };
 
-            _viewModel.LoadDevices();
+            _ = _viewModel.LoadDevicesAsync();
         }
 
         private void UpdateVolumeMeterColor(double volume)
@@ -85,9 +83,10 @@ namespace TechTest.Maui.Views
             _viewModel.StartCapture(deviceIndex);
         }
 
-        private void OnRecordClicked(object sender, EventArgs e)
+        private async void OnRecordClicked(object sender, EventArgs e)
         {
-            _viewModel.StartRecording();
+            try { await _viewModel.StartRecordingAsync(); }
+            catch (Exception ex) { Debug.WriteLine($"[Mic] {ex}"); }
         }
 
         private void OnStopClicked(object sender, EventArgs e)

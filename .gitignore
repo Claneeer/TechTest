@@ -1,7 +1,12 @@
-# Build results
+# Build results and publish artifacts
 bin/
 obj/
+[Bb]in/
+[Oo]bj/
+Pendrive_Maui/
 Publicado/
+publish/
+versão final/
 
 # User-specific files
 *.user
@@ -20,7 +25,6 @@ Desktop.ini
 .DS_Store
 
 # Binaries and logs
-versão final/
 *.log
 *.exe
 *.pdb

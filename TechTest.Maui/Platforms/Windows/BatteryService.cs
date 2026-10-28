@@ -4,6 +4,8 @@ using System.IO;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Management;
+using System.Threading;
 using BatteryPower = Microsoft.Maui.Devices.Battery;
 
 namespace TechTest.Maui.Services;
@@ -16,31 +18,77 @@ public class BatteryService : IBatteryService
 
         try
         {
-            double chargeLevel = BatteryPower.Default.ChargeLevel;
-            status.ChargePercent = (int)Math.Round(chargeLevel * 100);
+            // 1) Win32_Battery: sem instâncias => desktop / sem bateria instalada
+            int? percent = null;
+            int? wmiState = null;
+            bool found = false;
 
-            var batteryState = BatteryPower.Default.State;
-            status.IsCharging = batteryState == BatteryState.Charging;
-
-            var powerSource = BatteryPower.Default.PowerSource;
-            status.PowerSource = powerSource switch
+            try
             {
-                BatteryPowerSource.AC => "Energia AC",
-                BatteryPowerSource.Battery => "Bateria",
-                BatteryPowerSource.Usb => "USB",
-                _ => "Desconhecido"
-            };
-
-            status.StatusText = batteryState switch
+                using var searcher = new ManagementObjectSearcher(
+                    "SELECT EstimatedChargeRemaining, BatteryStatus FROM Win32_Battery");
+                foreach (ManagementBaseObject obj in searcher.Get())
+                {
+                    found = true;
+                    if (int.TryParse(obj["EstimatedChargeRemaining"]?.ToString(), out int p)) percent = p;
+                    if (int.TryParse(obj["BatteryStatus"]?.ToString(), out int s)) wmiState = s;
+                    obj.Dispose();
+                    break;
+                }
+            }
+            catch
             {
-                BatteryState.Charging => "Carregando",
-                BatteryState.Discharging => "Descarregando",
-                BatteryState.Full => "Completa",
-                BatteryState.NotCharging => "Não carregando",
-                BatteryState.NotPresent => "Não presente",
-                _ => "Desconhecido"
-            };
+                // WMI indisponível: decide pela API do MAUI abaixo
+            }
 
+            var mauiState = SafeMauiState();
+            if (!found && mauiState is BatteryState.NotPresent or BatteryState.Unknown or null)
+            {
+                status.HasBattery = false;
+                status.StatusText = BatteryStatus.NoBatteryMessage;
+                status.PowerSource = "Energia AC";
+                status.PowerType = "AC";
+                status.TimeRemaining = "--";
+                return status;
+            }
+
+            status.HasBattery = true;
+            status.ChargePercent = percent ?? (int)Math.Round(BatteryPower.Default.ChargeLevel * 100);
+
+            // BatteryStatus (WMI): 1=descarregando 2=AC 3=completa 4=baixa 5=crítica 6-9=carregando 11=parcialmente carregada
+            bool onAc;
+            if (wmiState.HasValue)
+            {
+                onAc = wmiState is 2 or 3 or 6 or 7 or 8 or 9 or 11;
+                status.IsCharging = wmiState is 6 or 7 or 8 or 9;
+                status.StatusText = wmiState switch
+                {
+                    1 => "Descarregando",
+                    2 => "Conectada à energia (não carregando)",
+                    3 => "Completa",
+                    4 => "Bateria baixa",
+                    5 => "Bateria crítica",
+                    6 or 7 or 8 or 9 => "Carregando",
+                    11 => "Parcialmente carregada",
+                    _ => "Desconhecido"
+                };
+            }
+            else
+            {
+                onAc = BatteryPower.Default.PowerSource == BatteryPowerSource.AC;
+                status.IsCharging = mauiState == BatteryState.Charging;
+                status.StatusText = mauiState switch
+                {
+                    BatteryState.Charging => "Carregando",
+                    BatteryState.Discharging => "Descarregando",
+                    BatteryState.Full => "Completa",
+                    BatteryState.NotCharging => "Não carregando",
+                    _ => "Desconhecido"
+                };
+            }
+
+            status.PowerType = onAc ? "AC" : "DC";
+            status.PowerSource = onAc ? "Energia AC (tomada)" : "Bateria (DC)";
             status.TimeRemaining = EstimateTimeRemaining(status);
         }
         catch
@@ -52,6 +100,12 @@ public class BatteryService : IBatteryService
         }
 
         return status;
+    }
+
+    private static BatteryState? SafeMauiState()
+    {
+        try { return BatteryPower.Default.State; }
+        catch { return null; }
     }
 
     private string EstimateTimeRemaining(BatteryStatus status)
@@ -69,17 +123,20 @@ public class BatteryService : IBatteryService
     {
         var report = new BatteryReport();
 
+        // Desktop/sem bateria: não executa powercfg (geraria erro) e informa claramente.
+        if (!GetCurrentStatus().HasBattery)
+        {
+            const string msg = BatteryStatus.NoBatteryMessage;
+            report.DesignCapacity = report.FullChargeCapacity = report.Health =
+                report.CycleCount = report.Manufacturer = msg;
+            report.IsReportReady = false;
+            return report;
+        }
+
         try
         {
-            string reportPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "TechTest", "battery-report.html");
-
-            string? reportDir = Path.GetDirectoryName(reportPath);
-            if (!string.IsNullOrEmpty(reportDir) && !Directory.Exists(reportDir))
-            {
-                Directory.CreateDirectory(reportDir);
-            }
+            // powercfg /batteryreport /output "%TEMP%\battery_report.html"
+            string reportPath = Path.Combine(Path.GetTempPath(), "battery_report.html");
 
             if (File.Exists(reportPath))
             {
@@ -88,26 +145,40 @@ public class BatteryService : IBatteryService
 
             var processInfo = new ProcessStartInfo
             {
-                FileName = "powercfg",
+                FileName = "powercfg.exe",
                 Arguments = $"/batteryreport /output \"{reportPath}\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
-                CreateNoWindow = true,
-                Verb = ""
+                CreateNoWindow = true
             };
 
             using var process = new Process { StartInfo = processInfo };
             process.Start();
 
-            await process.WaitForExitAsync();
+            // Drena as saídas para não bloquear o processo e aplica timeout
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            try
+            {
+                await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                try { process.Kill(entireProcessTree: true); } catch { }
+                throw;
+            }
+
+            await Task.WhenAll(stdout, stderr).ConfigureAwait(false);
 
             if (File.Exists(reportPath))
             {
                 report.ReportFilePath = reportPath;
                 report.IsReportReady = true;
 
-                string htmlContent = await File.ReadAllTextAsync(reportPath);
+                string htmlContent = await File.ReadAllTextAsync(reportPath).ConfigureAwait(false);
                 ParseBatteryReport(htmlContent, report);
             }
             else

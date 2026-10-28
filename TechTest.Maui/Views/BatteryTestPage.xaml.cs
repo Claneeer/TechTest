@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using Microsoft.Maui.Controls;
 using TechTest.Maui.Services;
@@ -63,6 +63,7 @@ namespace TechTest.Maui.Views
         protected override void OnAppearing()
         {
             base.OnAppearing();
+            _ = _viewModel?.InitializeAsync(); // idempotente: status + powercfg em segundo plano
             _viewModel?.RefreshStatus();
         }
     }

@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
 using TechTest.Maui.Helpers;
 using TechTest.Maui.Services;
@@ -12,15 +14,21 @@ namespace TechTest.Maui.Views
 {
     public partial class MainPage : ContentPage
     {
-        private readonly IHardwareInfoService _hardwareInfoService;
+        private readonly IHardwareInfoService? _hardwareInfoService;
+        private readonly IWindowResolutionService _resolutionService;
+        private readonly MainViewModel _viewModel;
         private readonly Dictionary<TestId, Label> _badges = new();
 
         public MainPage()
         {
             InitializeComponent();
 
-            _hardwareInfoService = IPlatformApplication.Current?.Services?.GetService<IHardwareInfoService>();
-            BindingContext = new MainViewModel();
+            var services = IPlatformApplication.Current?.Services;
+            _hardwareInfoService = services?.GetService<IHardwareInfoService>();
+            _resolutionService = services?.GetService<IWindowResolutionService>() ?? new WindowResolutionService();
+
+            _viewModel = new MainViewModel(_resolutionService);
+            BindingContext = _viewModel;
 
             PickerScale.SelectedIndex = 0;
             LoadSystemInfoAsync();
@@ -140,7 +148,7 @@ namespace TechTest.Maui.Views
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Erro", $"Não foi possível gerar o laudo:\n{ex.Message}", "OK");
+                await DisplayAlert("Erro", $"Não foi possível gerar o laudo:\n{ex}", "OK");
             }
             finally
             {
@@ -215,7 +223,7 @@ namespace TechTest.Maui.Views
         {
             if (sender is View view)
             {
-                Frame frame = FindParentFrame(view);
+                Frame? frame = FindParentFrame(view);
                 if (frame != null)
                 {
                     frame.BackgroundColor = Color.FromArgb("#26264C");
@@ -228,7 +236,7 @@ namespace TechTest.Maui.Views
         {
             if (sender is View view)
             {
-                Frame frame = FindParentFrame(view);
+                Frame? frame = FindParentFrame(view);
                 if (frame != null)
                 {
                     frame.BackgroundColor = Color.FromArgb("#1C1C38");
@@ -237,10 +245,10 @@ namespace TechTest.Maui.Views
             }
         }
 
-        private Frame FindParentFrame(View view)
+        private Frame? FindParentFrame(View view)
         {
             if (view is Frame frame) return frame;
-            Element parent = view.Parent;
+            Element? parent = view.Parent;
             while (parent != null)
             {
                 if (parent is Frame f) return f;
@@ -249,18 +257,54 @@ namespace TechTest.Maui.Views
             return null;
         }
 
+        private async void OnResolutionButtonClicked(object sender, EventArgs e)
+        {
+            var options = _resolutionService.Presets.Select(p => p.DisplayLabel).ToArray();
+            string? selected = await DisplayActionSheet(
+                "Selecionar Resolução e Aspect Ratio",
+                "Cancelar",
+                null,
+                options);
+
+            if (string.IsNullOrWhiteSpace(selected) || selected == "Cancelar")
+                return;
+
+            var preset = _resolutionService.Presets.FirstOrDefault(p => p.DisplayLabel == selected);
+            if (preset != null)
+            {
+                PickerResolution.SelectedItem = preset;
+            }
+        }
+
+        private void OnResolutionPickerChanged(object sender, EventArgs e)
+        {
+            if (PickerResolution.SelectedItem is ResolutionOption preset)
+            {
+                var result = _resolutionService.ApplyPreset(preset);
+                if (!result.Success)
+                {
+                    _ = DisplayAlert("Resolução", result.Message, "OK");
+                }
+            }
+        }
+
         private void OnScalePickerChanged(object sender, EventArgs e)
         {
             if (PickerScale.SelectedIndex < 0) return;
 
+            if (PickerScale.SelectedIndex == 0)
+            {
+                ResponsiveHelper.ResetScale();
+                return;
+            }
+
             double scale = PickerScale.SelectedIndex switch
             {
-                0 => -1.0,
                 1 => 0.75,
                 2 => 1.0,
                 3 => 1.25,
                 4 => 1.5,
-                _ => -1.0
+                _ => 1.0
             };
 
             ResponsiveHelper.SetScale(scale);
@@ -271,6 +315,17 @@ namespace TechTest.Maui.Views
 #if WINDOWS
             try
             {
+                var furMarkService = IPlatformApplication.Current?.Services?.GetService<IFurMarkService>();
+                if (furMarkService != null)
+                {
+                    var result = await furMarkService.LaunchAsync();
+                    if (!result.Success)
+                    {
+                        await DisplayAlert("FurMark", result.Message, "OK");
+                    }
+                    return;
+                }
+
                 string appDir = AppDomain.CurrentDomain.BaseDirectory;
                 string furmarkPath = Path.Combine(appDir, "FurMark.exe");
 
@@ -298,7 +353,7 @@ namespace TechTest.Maui.Views
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Erro", $"Erro ao abrir FurMark:\n{ex.Message}", "OK");
+                await DisplayAlert("Erro", $"Erro ao abrir FurMark:\n{ex}", "OK");
             }
 #else
             await DisplayAlert("Indisponível", "FurMark está disponível apenas no Windows.", "OK");

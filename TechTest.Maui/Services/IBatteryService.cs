@@ -2,8 +2,14 @@ namespace TechTest.Maui.Services;
 
 public class BatteryStatus
 {
+    public const string NoBatteryMessage = "Bateria não detectada (Computador de Mesa/Sem Bateria)";
+
+    /// <summary>False em desktops/equipamentos sem bateria instalada.</summary>
+    public bool HasBattery { get; set; } = true;
     public int ChargePercent { get; set; }
     public bool IsCharging { get; set; }
+    /// <summary>"AC" (tomada) ou "DC" (bateria); vazio quando não aplicável.</summary>
+    public string PowerType { get; set; } = "";
     public string PowerSource { get; set; } = "";
     public string TimeRemaining { get; set; } = "";
     public string StatusText { get; set; } = "";

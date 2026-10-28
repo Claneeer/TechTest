@@ -9,13 +9,12 @@ namespace TechTest.Maui.Views
     {
         private readonly AudioTestViewModel _viewModel;
 
-        public AudioTestPage()
+        public AudioTestPage(AudioTestViewModel viewModel)
         {
             InitializeComponent();
             TechTest.Maui.Controls.ApprovalBar.Attach(this, TechTest.Maui.Services.TestId.Audio);
 
-            var audioPlayback = IPlatformApplication.Current?.Services?.GetService<IAudioPlaybackService>();
-            _viewModel = new AudioTestViewModel(audioPlayback);
+            _viewModel = viewModel;
             BindingContext = _viewModel;
 
             PickerSoundType.SelectedIndex = 0;
@@ -122,6 +121,7 @@ namespace TechTest.Maui.Views
         {
             base.OnDisappearing();
             _viewModel.StopTone();
+            SpeakerView.SetPlayingState(false, AudioChannel.Both);
         }
     }
 }

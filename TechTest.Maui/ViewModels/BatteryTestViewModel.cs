@@ -106,30 +106,77 @@ public class BatteryTestViewModel : BaseViewModel
     public ICommand RefreshCommand { get; }
     public ICommand GenerateReportCommand { get; }
 
+    private bool _hasBattery = true;
+    private string _powerType = "";
+    private bool _initialized;
+
+    /// <summary>False em desktops: a UI pode ocultar gauge/botões e exibir <see cref="StatusText"/>.</summary>
+    public bool HasBattery
+    {
+        get => _hasBattery;
+        set => SetProperty(ref _hasBattery, value);
+    }
+
+    /// <summary>"AC" ou "DC".</summary>
+    public string PowerType
+    {
+        get => _powerType;
+        set => SetProperty(ref _powerType, value);
+    }
+
     public BatteryTestViewModel(IBatteryService batteryService)
     {
         _batteryService = batteryService;
 
-        RefreshCommand = new Command(RefreshStatus);
+        RefreshCommand = new Command(async () => await RefreshStatusAsync());
         GenerateReportCommand = new Command(async () => await GenerateReportAsync());
 
-        RefreshStatus();
+        // Dispara imediatamente ao criar a página, sem esperar clique do usuário.
+        _ = InitializeAsync();
     }
 
-    public void RefreshStatus()
+    /// <summary>Status rápido + detalhes avançados (powercfg) em segundo plano. Idempotente.</summary>
+    public async Task InitializeAsync()
+    {
+        if (_initialized) return;
+        _initialized = true;
+
+        try
+        {
+            await RefreshStatusAsync();
+            if (HasBattery)
+                await GenerateReportAsync();
+        }
+        catch
+        {
+            _initialized = false; // permite nova tentativa no próximo OnAppearing
+        }
+    }
+
+    public void RefreshStatus() => _ = RefreshStatusAsync();
+
+    public async Task RefreshStatusAsync()
     {
         if (_batteryService == null) return;
 
         try
         {
-            var status = _batteryService.GetCurrentStatus();
-            if (status != null)
+            // WMI é síncrono: roda fora da thread de UI
+            var status = await Task.Run(() => _batteryService.GetCurrentStatus());
+            if (status == null) return;
+
+            HasBattery = status.HasBattery;
+            ChargePercent = status.ChargePercent;
+            IsCharging = status.IsCharging;
+            PowerType = status.PowerType;
+            PowerSource = status.PowerSource;
+            TimeRemaining = status.TimeRemaining;
+            StatusText = status.StatusText;
+
+            if (!status.HasBattery)
             {
-                ChargePercent = status.ChargePercent;
-                IsCharging = status.IsCharging;
-                PowerSource = status.PowerSource;
-                TimeRemaining = status.TimeRemaining;
-                StatusText = status.StatusText;
+                DesignCapacity = FullChargeCapacity = Health = CycleCount = Manufacturer = BatteryStatus.NoBatteryMessage;
+                IsReportReady = false;
             }
         }
         catch

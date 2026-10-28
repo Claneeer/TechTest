@@ -37,10 +37,29 @@ public static class MauiProgram
     {
 #if WINDOWS || MACCATALYST
         services.AddSingleton<IHardwareInfoService, HardwareInfoService>();
-        services.AddSingleton<IAudioPlaybackService, AudioPlaybackService>();
+        // Gerador de tons (aba Áudio): instância própria, nunca compartilhada com a gravação do microfone.
+        services.AddTransient<IAudioPlaybackService, AudioPlaybackService>();
         services.AddSingleton<IAudioCaptureService, AudioCaptureService>();
         services.AddSingleton<IBatteryService, BatteryService>();
 #endif
+#if WINDOWS
+        // Player de arquivo da gravação: dispositivo de saída ISOLADO do gerador de tons.
+        services.AddTransient<IRecordingPlayerService, RecordingPlayerService>();
+#else
+        services.AddTransient<IRecordingPlayerService, NullRecordingPlayerService>();
+#endif
+
+        services.AddSingleton<IClipboardService, ClipboardService>();
+        services.AddSingleton<IWindowResolutionService, WindowResolutionService>();
+        services.AddSingleton<ICameraAccessService, CameraAccessService>();
+        services.AddSingleton<IToolsPathProvider, ToolsPathProvider>();
+        services.AddSingleton<INetworkConfigService, NetworkConfigService>();
+        services.AddSingleton<IFurMarkService, FurMarkService>();
+
+        services.AddTransient<ViewModels.MainViewModel>();
+        services.AddTransient<ViewModels.SpecsViewModel>();
+        services.AddTransient<ViewModels.MicrophoneTestViewModel>();
+        services.AddTransient<ViewModels.AudioTestViewModel>();
 
         services.AddTransient<Views.MainPage>();
         services.AddTransient<Views.MicrophoneTestPage>();

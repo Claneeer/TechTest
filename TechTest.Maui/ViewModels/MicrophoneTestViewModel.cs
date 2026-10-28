@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
@@ -8,111 +9,97 @@ using TechTest.Maui.Services;
 
 namespace TechTest.Maui.ViewModels;
 
-public class MicrophoneTestViewModel : BaseViewModel
+/// <summary>
+/// Teste de microfone. Responsabilidades de ciclo de vida:
+///  - captura (IAudioCaptureService) e gravação de 5 s cancelável;
+///  - reprodução da gravação feita por <see cref="IRecordingPlayerService"/>, que é uma instância
+///    ISOLADA do gerador de tons da aba Áudio (antes o ViewModel disparava um "bip" de 440 Hz no
+///    serviço compartilhado, que nunca parava sozinho).
+/// </summary>
+public sealed class MicrophoneTestViewModel : BaseViewModel, IDisposable
 {
-    private readonly IAudioCaptureService _captureService;
-    private readonly IAudioPlaybackService _playbackService;
+    private static readonly TimeSpan RecordingDuration = TimeSpan.FromSeconds(5);
+
+    private readonly IAudioCaptureService? _captureService;
+    private readonly IRecordingPlayerService? _recordingPlayer;
+
+    private CancellationTokenSource? _recordingCts;
+    private bool _disposed;
 
     private string _statusText = "Pronto para testar";
     private Color _statusColor = Color.FromArgb("#A0A0B0");
     private double _volumeLevel = 0.0;
     private bool _isCapturing;
     private bool _isRecording;
+    private bool _isPlayingRecording;
     private float[] _waveformSamples = Array.Empty<float>();
     private List<string> _devices = new();
     private float _sensitivity = 1.0f;
-    private string _outputPath = "";
+    private readonly string _outputPath;
 
-    public string StatusText
-    {
-        get => _statusText;
-        set => SetProperty(ref _statusText, value);
-    }
-
-    public Color StatusColor
-    {
-        get => _statusColor;
-        set => SetProperty(ref _statusColor, value);
-    }
-
-    public double VolumeLevel
-    {
-        get => _volumeLevel;
-        set => SetProperty(ref _volumeLevel, value);
-    }
+    public string StatusText { get => _statusText; set => SetProperty(ref _statusText, value); }
+    public Color StatusColor { get => _statusColor; set => SetProperty(ref _statusColor, value); }
+    public double VolumeLevel { get => _volumeLevel; set => SetProperty(ref _volumeLevel, value); }
 
     public bool IsCapturing
     {
         get => _isCapturing;
-        set
-        {
-            if (SetProperty(ref _isCapturing, value))
-            {
-                OnPropertyChanged(nameof(IsRecording));
-            }
-        }
+        set { if (SetProperty(ref _isCapturing, value)) OnPropertyChanged(nameof(IsRecording)); }
     }
 
-    public bool IsRecording
-    {
-        get => _isRecording;
-        set => SetProperty(ref _isRecording, value);
-    }
-
-    public float[] WaveformSamples
-    {
-        get => _waveformSamples;
-        set => SetProperty(ref _waveformSamples, value);
-    }
-
-    public List<string> Devices
-    {
-        get => _devices;
-        set => SetProperty(ref _devices, value);
-    }
+    public bool IsRecording { get => _isRecording; set => SetProperty(ref _isRecording, value); }
+    public bool IsPlayingRecording { get => _isPlayingRecording; private set => SetProperty(ref _isPlayingRecording, value); }
+    public float[] WaveformSamples { get => _waveformSamples; set => SetProperty(ref _waveformSamples, value); }
+    public List<string> Devices { get => _devices; set => SetProperty(ref _devices, value); }
 
     public float Sensitivity
     {
         get => _sensitivity;
         set
         {
-            if (SetProperty(ref _sensitivity, value))
-            {
-                if (_captureService != null)
-                {
-                    _captureService.SensitivityMultiplier = value;
-                }
-            }
+            if (SetProperty(ref _sensitivity, value) && _captureService != null)
+                _captureService.SensitivityMultiplier = value;
         }
     }
 
-    public MicrophoneTestViewModel(IAudioCaptureService captureService, IAudioPlaybackService playbackService)
+    public MicrophoneTestViewModel(IAudioCaptureService? captureService, IRecordingPlayerService? recordingPlayer)
     {
         _captureService = captureService;
-        _playbackService = playbackService;
+        _recordingPlayer = recordingPlayer;
 
-        if (_captureService != null)
-        {
-            _captureService.DataAvailable += OnDataAvailable;
-        }
+        if (_captureService != null) _captureService.DataAvailable += OnDataAvailable;
+        if (_recordingPlayer != null) _recordingPlayer.PlaybackFinished += OnRecordingPlaybackFinished;
 
         string docsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        string techTestDir = Path.Combine(docsPath, "TechTest");
-        _outputPath = Path.Combine(techTestDir, "mic_test.wav");
+        _outputPath = Path.Combine(docsPath, "TechTest", "mic_test.wav");
     }
 
-    private void OnDataAvailable(object sender, AudioDataEventArgs e)
+    private void OnDataAvailable(object? sender, AudioDataEventArgs e)
     {
         VolumeLevel = e.Peak;
         WaveformSamples = e.WaveformSamples;
     }
 
-    public async void LoadDevices()
+    private void OnRecordingPlaybackFinished(object? sender, EventArgs e)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (_disposed) return;
+            IsPlayingRecording = false;
+            if (!IsRecording)
+            {
+                StatusText = IsCapturing ? "Escutando..." : "Reprodução concluída";
+                StatusColor = IsCapturing ? Color.FromArgb("#22C55E") : Color.FromArgb("#3B82F6");
+            }
+        });
+    }
+
+    public async Task LoadDevicesAsync()
     {
         if (_captureService == null) return;
         try
         {
-            var deviceList = await _captureService.GetDevicesAsync();
+            var deviceList = await _captureService.GetDevicesAsync().ConfigureAwait(false);
             Devices = deviceList ?? new List<string>();
         }
         catch
@@ -127,89 +114,113 @@ public class MicrophoneTestViewModel : BaseViewModel
 
         try
         {
+            StopPlayback(); // nunca capturar enquanto reproduz a gravação anterior (feedback/eco)
             _captureService.StartCapture(deviceIndex, _sensitivity);
             IsCapturing = true;
             StatusText = "Escutando...";
-            StatusColor = Color.FromArgb("#22C55E"); // Green
+            StatusColor = Color.FromArgb("#22C55E");
         }
         catch (Exception ex)
         {
+            IsCapturing = false;
             StatusText = $"Erro: {ex.Message}";
-            StatusColor = Color.FromArgb("#EF4444"); // Red
+            StatusColor = Color.FromArgb("#EF4444");
         }
     }
 
-    public async void StartRecording()
+    public async Task StartRecordingAsync()
     {
         if (_captureService == null || !IsCapturing || IsRecording) return;
+
+        // Nova gravação => interrompe qualquer reprodução anterior e libera o arquivo (será sobrescrito).
+        StopPlayback();
+
+        var cts = new CancellationTokenSource();
+        _recordingCts = cts;
 
         try
         {
             StatusText = "Gravando áudio (5s)...";
-            StatusColor = Color.FromArgb("#EF4444"); // Red
+            StatusColor = Color.FromArgb("#EF4444");
             IsRecording = true;
 
-            await _captureService.StartRecording(_outputPath);
+            await _captureService.StartRecording(_outputPath).ConfigureAwait(true);
+            await Task.Delay(RecordingDuration, cts.Token).ConfigureAwait(true);
 
-            // Wait 5 seconds to complete recording
-            await Task.Delay(5000);
-
-            if (IsRecording)
-            {
-                StopRecording();
-            }
+            FinishRecording(playBack: true);
+        }
+        catch (OperationCanceledException)
+        {
+            // StopCapture()/Dispose() cancelou: o próprio chamador já finalizou o writer.
         }
         catch (Exception ex)
         {
-            StatusText = $"Erro de gravação: {ex.Message}";
-            StatusColor = Color.FromArgb("#EF4444"); // Red
+            try { _captureService.StopRecording(); } catch { }
             IsRecording = false;
+            StatusText = $"Erro de gravação: {ex.Message}";
+            StatusColor = Color.FromArgb("#EF4444");
+        }
+        finally
+        {
+            if (ReferenceEquals(_recordingCts, cts)) _recordingCts = null;
+            cts.Dispose();
         }
     }
 
-    private void StopRecording()
+    private void FinishRecording(bool playBack)
     {
         if (_captureService == null || !IsRecording) return;
 
         try
         {
-            _captureService.StopRecording();
+            _captureService.StopRecording(); // fecha e libera o arquivo antes de reproduzir
             IsRecording = false;
             StatusText = "Gravação concluída!";
-            StatusColor = Color.FromArgb("#3B82F6"); // Blue
+            StatusColor = Color.FromArgb("#3B82F6");
 
-            // Optional: playback recorded audio automatically or notify the user
-            PlayRecording();
+            if (playBack) _ = PlayRecordingAsync();
         }
         catch (Exception ex)
         {
+            IsRecording = false;
             StatusText = $"Erro ao salvar: {ex.Message}";
             StatusColor = Color.FromArgb("#EF4444");
         }
     }
 
-    private void PlayRecording()
+    private async Task PlayRecordingAsync()
     {
-        if (_playbackService == null || !File.Exists(_outputPath)) return;
+        if (_recordingPlayer == null || !File.Exists(_outputPath)) return;
 
         try
         {
-            // If the playback service supports playing file paths, we can call it.
-            // Since IAudioPlaybackService is designed for Tone generator, we can play a notification beep or tone,
-            // or if they have implemented PlayTone. Let's make sure we do not crash if the tone generator is simple.
-            // Let's notify that audio is saved.
-            StatusText = $"Gravação salva em: mic_test.wav! Tocando bip...";
+            IsPlayingRecording = true;
+            StatusText = "Reproduzindo gravação...";
             StatusColor = Color.FromArgb("#10B981");
-            _playbackService.PlayTone(440, AudioChannel.Both, SoundType.Beep, 0.5);
+            await _recordingPlayer.PlayAsync(_outputPath).ConfigureAwait(true);
         }
-        catch
+        catch (Exception ex)
         {
-            // Silencioso
+            IsPlayingRecording = false;
+            StatusText = $"Não foi possível reproduzir: {ex.Message}";
+            StatusColor = Color.FromArgb("#EF4444");
         }
     }
 
+    /// <summary>Interrompe a reprodução da gravação (troca de aba, nova gravação, saída da página).</summary>
+    public void StopPlayback()
+    {
+        try { _recordingPlayer?.Stop(); } catch { }
+        IsPlayingRecording = false;
+    }
+
+    /// <summary>Encerra TUDO: gravação em andamento, captura e reprodução. Idempotente.</summary>
     public void StopCapture()
     {
+        try { _recordingCts?.Cancel(); } catch (ObjectDisposedException) { }
+
+        StopPlayback();
+
         if (_captureService == null) return;
 
         try
@@ -221,15 +232,29 @@ public class MicrophoneTestViewModel : BaseViewModel
             }
 
             _captureService.StopCapture();
+        }
+        catch
+        {
+            // Dispositivo pode ter sido removido; o estado de UI é restaurado abaixo.
+        }
+        finally
+        {
             IsCapturing = false;
             VolumeLevel = 0.0;
             WaveformSamples = Array.Empty<float>();
             StatusText = "Pronto para testar";
             StatusColor = Color.FromArgb("#A0A0B0");
         }
-        catch
-        {
-            // Silencioso
-        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        StopCapture();
+        _disposed = true;
+
+        if (_captureService != null) _captureService.DataAvailable -= OnDataAvailable;
+        if (_recordingPlayer != null) _recordingPlayer.PlaybackFinished -= OnRecordingPlaybackFinished;
+        _recordingPlayer?.Dispose();
     }
 }

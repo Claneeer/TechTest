@@ -6,6 +6,30 @@
              BackgroundColor="{StaticResource BgPrimary}"
              Shell.NavBarIsVisible="False">
 
+    <ContentPage.MenuBarItems>
+        <MenuBarItem Text="Resolução">
+            <MenuFlyoutSubItem Text="Aspect Ratio 16:9">
+                <MenuFlyoutItem Text="1366x768 (16:9) — HD / WXGA"
+                                Command="{Binding SetResolutionCommand}"
+                                CommandParameter="1366x768" />
+                <MenuFlyoutItem Text="1920x1080 (16:9) — Full HD"
+                                Command="{Binding SetResolutionCommand}"
+                                CommandParameter="1920x1080" />
+                <MenuFlyoutItem Text="2560x1440 (16:9) — QHD / 2K"
+                                Command="{Binding SetResolutionCommand}"
+                                CommandParameter="2560x1440" />
+                <MenuFlyoutItem Text="3840x2160 (16:9) — UHD / 4K"
+                                Command="{Binding SetResolutionCommand}"
+                                CommandParameter="3840x2160" />
+            </MenuFlyoutSubItem>
+            <MenuFlyoutSubItem Text="Aspect Ratio 16:10">
+                <MenuFlyoutItem Text="1920x1200 (16:10) — WUXGA"
+                                Command="{Binding SetResolutionCommand}"
+                                CommandParameter="1920x1200" />
+            </MenuFlyoutSubItem>
+        </MenuBarItem>
+    </ContentPage.MenuBarItems>
+
     <Grid RowDefinitions="*,Auto">
         <!-- Main scrollable content -->
         <ScrollView Grid.Row="0">
@@ -389,7 +413,7 @@
               BackgroundColor="{StaticResource BgDark}"
               HeightRequest="50"
               Padding="15,0"
-               ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto">
+              ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 
             <!-- System info label -->
             <Label x:Name="LblSysInfo"
@@ -410,7 +434,7 @@
                     CornerRadius="4"
                     HeightRequest="34"
                     Padding="12,0"
-                    Margin="5,0"
+                    Margin="4,0"
                     Clicked="OnStartSequentialClicked" />
 
             <!-- Laudo técnico -->
@@ -425,7 +449,7 @@
                     CornerRadius="4"
                     HeightRequest="34"
                     Padding="12,0"
-                    Margin="5,0"
+                    Margin="4,0"
                     Clicked="OnExportReportClicked" />
 
             <!-- FurMark button (Windows only) -->
@@ -440,7 +464,7 @@
                     CornerRadius="4"
                     HeightRequest="34"
                     Padding="12,0"
-                    Margin="5,0"
+                    Margin="4,0"
                     Clicked="OnFurMarkClicked">
                 <Button.IsVisible>
                     <OnPlatform x:TypeArguments="x:Boolean">
@@ -450,18 +474,43 @@
                 </Button.IsVisible>
             </Button>
 
+            <!-- Resolution button / selector -->
+            <Button x:Name="BtnResolution"
+                    Grid.Column="4"
+                    Text="📐 Resolução:"
+                    BackgroundColor="Transparent"
+                    TextColor="{StaticResource TextSecondary}"
+                    FontSize="11"
+                    HeightRequest="34"
+                    Padding="6,0"
+                    Margin="6,0,2,0"
+                    Clicked="OnResolutionButtonClicked" />
+
+            <Picker x:Name="PickerResolution"
+                    Grid.Column="5"
+                    WidthRequest="215"
+                    HeightRequest="34"
+                    FontSize="11"
+                    Title="Selecionar Resolução"
+                    TextColor="{StaticResource TextPrimary}"
+                    BackgroundColor="{StaticResource BgInput}"
+                    ItemsSource="{Binding ResolutionPresets}"
+                    SelectedItem="{Binding SelectedResolution}"
+                    SelectedIndexChanged="OnResolutionPickerChanged"
+                    VerticalOptions="Center" />
+
             <!-- Scale label -->
-            <Label Grid.Column="4"
-                   Text="🖥 Ajustar Tela:"
+            <Label Grid.Column="6"
+                   Text="🖥 Escala:"
                    FontSize="11"
                    TextColor="{StaticResource TextSecondary}"
                    VerticalTextAlignment="Center"
-                   Margin="10,0,5,0" />
+                   Margin="8,0,4,0" />
 
             <!-- Scale picker -->
             <Picker x:Name="PickerScale"
-                    Grid.Column="5"
-                    WidthRequest="130"
+                    Grid.Column="7"
+                    WidthRequest="110"
                     HeightRequest="34"
                     FontSize="11"
                     TextColor="{StaticResource TextPrimary}"

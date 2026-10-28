@@ -35,6 +35,8 @@ public class HardwareInfoService : IHardwareInfoService
             if (IsInvalidSerial(specs.ServiceTag) && !IsInvalidSerial(specs.BaseBoardSerial))
                 specs.ServiceTag = specs.BaseBoardSerial;
 
+            ApplyIdentityFallbacks(specs);
+
             return specs;
         });
     }
@@ -74,6 +76,78 @@ public class HardwareInfoService : IHardwareInfoService
             }
             return list;
         });
+    }
+
+    private static readonly string[] PlaceholderValues =
+    {
+        "To be filled by O.E.M.", "Default string", "System Product Name", "System manufacturer",
+        "System Serial Number", "Not Applicable", "Not Specified", "None", "N/A", "O.E.M.",
+        "Desconhecido", "Carregando...", "Não disponível", "Não informado"
+    };
+
+    private static bool IsPlaceholder(string? v)
+    {
+        if (string.IsNullOrWhiteSpace(v)) return true;
+        foreach (var p in PlaceholderValues)
+            if (v.Trim().Equals(p, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
+    private static string? QueryFirst(string wql, string property)
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(wql);
+            foreach (ManagementBaseObject obj in searcher.Get())
+            {
+                var value = obj[property]?.ToString()?.Trim();
+                obj.Dispose();
+                if (!IsPlaceholder(value)) return value;
+            }
+        }
+        catch
+        {
+            // WMI indisponível/sem permissão: tenta o próximo fallback
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Win32_ComputerSystem costuma devolver placeholders de OEM. Completa Fabricante, Modelo e Serial
+    /// percorrendo: ComputerSystem → ComputerSystemProduct → BaseBoard → SystemEnclosure → BIOS → DeviceInfo (MAUI).
+    /// </summary>
+    private void ApplyIdentityFallbacks(HardwareSpecs specs)
+    {
+        if (IsPlaceholder(specs.Manufacturer))
+        {
+            var m = QueryFirst("SELECT Vendor FROM Win32_ComputerSystemProduct", "Vendor")
+                    ?? (IsPlaceholder(specs.BaseBoardManufacturer) ? null : specs.BaseBoardManufacturer)
+                    ?? (IsPlaceholder(DeviceInfo.Current.Manufacturer) ? null : DeviceInfo.Current.Manufacturer);
+            specs.Manufacturer = m != null ? CleanManufacturerName(m) : "Desconhecido";
+        }
+
+        if (IsPlaceholder(specs.Model))
+        {
+            // Lenovo guarda o nome comercial em ComputerSystemProduct.Version
+            var model = QueryFirst("SELECT Version FROM Win32_ComputerSystemProduct", "Version")
+                        ?? QueryFirst("SELECT Name FROM Win32_ComputerSystemProduct", "Name")
+                        ?? (IsPlaceholder(specs.SystemSku) ? null : specs.SystemSku)
+                        ?? (IsPlaceholder(specs.BaseBoardProduct) ? null : specs.BaseBoardProduct)
+                        ?? (IsPlaceholder(DeviceInfo.Current.Model) ? null : DeviceInfo.Current.Model);
+            specs.Model = model ?? "Desconhecido";
+        }
+
+        if (IsPlaceholder(specs.ServiceTag))
+        {
+            specs.ServiceTag =
+                QueryFirst("SELECT IdentifyingNumber FROM Win32_ComputerSystemProduct", "IdentifyingNumber")
+                ?? QueryFirst("SELECT SerialNumber FROM Win32_SystemEnclosure", "SerialNumber")
+                ?? (IsPlaceholder(specs.BaseBoardSerial) ? null : specs.BaseBoardSerial)
+                ?? "Não informado";
+        }
+
+        if (IsPlaceholder(specs.BiosSerial))
+            specs.BiosSerial = QueryFirst("SELECT SerialNumber FROM Win32_BIOS", "SerialNumber") ?? "Não informado";
     }
 
     /// <summary>
@@ -225,77 +299,71 @@ public class HardwareInfoService : IHardwareInfoService
 
     private void GetManufacturerAndModel(HardwareSpecs specs)
     {
+        string? rawManufacturer = null;
+        string? rawModel = null;
+
         try
         {
             using var searcher = new ManagementObjectSearcher(
                 "SELECT Manufacturer, Model, SystemFamily, SystemSKUNumber FROM Win32_ComputerSystem");
             foreach (var obj in searcher.Get())
             {
-                string rawManufacturer = obj["Manufacturer"]?.ToString() ?? "Desconhecido";
-                string rawModel = obj["Model"]?.ToString() ?? "Desconhecido";
-
-                specs.Manufacturer = CleanManufacturerName(rawManufacturer);
-                specs.Model = rawModel.Trim();
+                rawManufacturer = obj["Manufacturer"]?.ToString();
+                rawModel = obj["Model"]?.ToString();
                 specs.SystemFamily = obj["SystemFamily"]?.ToString()?.Trim() ?? "";
                 specs.SystemSku = obj["SystemSKUNumber"]?.ToString()?.Trim() ?? "";
-
                 obj.Dispose();
-                return;
+                break;
             }
         }
         catch
         {
-            specs.Manufacturer = "Desconhecido";
-            specs.Model = "Desconhecido";
+            // WMI falhou: segue para o fallback da BIOS abaixo
         }
+
+        // Fallback: Win32_BIOS.Manufacturer quando ComputerSystem vem vazio/genérico
+        if (IsPlaceholder(rawManufacturer) || CleanManufacturerName(rawManufacturer) == "Desconhecido")
+        {
+            var biosVendor = QueryFirst("SELECT Manufacturer FROM Win32_BIOS", "Manufacturer");
+            if (!string.IsNullOrWhiteSpace(biosVendor) && CleanManufacturerName(biosVendor) != "Desconhecido")
+                rawManufacturer = biosVendor;
+        }
+
+        specs.Manufacturer = CleanManufacturerName(rawManufacturer);
+        specs.Model = string.IsNullOrWhiteSpace(rawModel) ? "Desconhecido" : rawModel.Trim();
     }
 
-    private string CleanManufacturerName(string name)
+    /// <summary>
+    /// Normaliza o fabricante com verificações explícitas (sem dicionário => sem risco de chave duplicada).
+    /// Qualquer valor nulo/em branco/não reconhecido resulta em "Desconhecido".
+    /// </summary>
+    private static string CleanManufacturerName(string? name)
     {
-        var mappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            { "Dell Inc.", "Dell" },
-            { "Dell Inc", "Dell" },
-            { "DELL", "Dell" },
-            { "Lenovo", "Lenovo" },
-            { "LENOVO", "Lenovo" },
-            { "Hewlett-Packard", "HP" },
-            { "HP", "HP" },
-            { "Hewlett Packard", "HP" },
-            { "ASUSTeK Computer Inc.", "ASUS" },
-            { "ASUSTeK COMPUTER INC.", "ASUS" },
-            { "ASUS", "ASUS" },
-            { "Acer", "Acer" },
-            { "Acer, Inc.", "Acer" },
-            { "ACER", "Acer" },
-            { "Apple Inc.", "Apple" },
-            { "Apple", "Apple" },
-            { "Samsung Electronics", "Samsung" },
-            { "SAMSUNG ELECTRONICS CO., LTD.", "Samsung" },
-            { "Samsung", "Samsung" },
-            { "Positivo Tecnologia SA", "Positivo" },
-            { "Positivo", "Positivo" },
-            { "POSITIVO", "Positivo" },
-            { "Gigabyte Technology Co., Ltd.", "Gigabyte" },
-            { "GIGABYTE", "Gigabyte" },
-            { "Micro-Star International Co., Ltd.", "MSI" },
-            { "Micro-Star International", "MSI" },
-            { "MSI", "MSI" }
-        };
+        if (string.IsNullOrWhiteSpace(name))
+            return "Desconhecido";
 
-        string trimmed = name.Trim();
+        string n = name.Trim();
 
-        if (mappings.TryGetValue(trimmed, out string? clean))
-            return clean;
+        if (Has(n, "LENOVO")) return "Lenovo";
+        else if (Has(n, "Dell")) return "Dell";
+        else if (Has(n, "Hewlett") || Has(n, "Hewlett-Packard") || n.Equals("HP", StringComparison.OrdinalIgnoreCase)
+                 || n.StartsWith("HP ", StringComparison.OrdinalIgnoreCase) || n.StartsWith("HP,", StringComparison.OrdinalIgnoreCase)
+                 || n.StartsWith("HP.", StringComparison.OrdinalIgnoreCase))
+            return "HP";
+        else if (Has(n, "Acer")) return "Acer";
+        else if (Has(n, "ASUS")) return "ASUS";
+        else if (Has(n, "SAMSUNG")) return "Samsung";
+        else if (Has(n, "Positivo")) return "Positivo";
+        else if (Has(n, "Avell")) return "Avell";
+        else if (Has(n, "Apple")) return "Apple";
+        else if (Has(n, "Micro-Star") || n.Equals("MSI", StringComparison.OrdinalIgnoreCase)) return "MSI";
+        else if (Has(n, "GIGABYTE")) return "Gigabyte";
 
-        foreach (var kvp in mappings)
-        {
-            if (trimmed.Contains(kvp.Key, StringComparison.OrdinalIgnoreCase))
-                return kvp.Value;
-        }
-
-        return trimmed;
+        return "Desconhecido";
     }
+
+    private static bool Has(string value, string token) =>
+        value.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0;
 
     private string GetTotalRam()
     {

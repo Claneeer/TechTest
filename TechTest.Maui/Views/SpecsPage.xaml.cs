@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Devices;
 using TechTest.Maui.Services;
 using TechTest.Maui.ViewModels;
 
@@ -10,15 +13,22 @@ namespace TechTest.Maui.Views
 {
     public partial class SpecsPage : ContentPage
     {
-        private readonly IHardwareInfoService _hardwareInfoService;
+        private readonly IHardwareInfoService? _hardwareInfoService;
+        private readonly IBatteryService? _batteryService;
+        private readonly IClipboardService _clipboardService;
         private readonly SpecsViewModel _viewModel;
+        private HardwareSpecs? _specs;
 
         public SpecsPage()
         {
             InitializeComponent();
 
-            _hardwareInfoService = IPlatformApplication.Current?.Services?.GetService<IHardwareInfoService>();
-            _viewModel = new SpecsViewModel(_hardwareInfoService);
+            var services = IPlatformApplication.Current?.Services;
+            _hardwareInfoService = services?.GetService<IHardwareInfoService>();
+            _batteryService = services?.GetService<IBatteryService>();
+            _clipboardService = services?.GetService<IClipboardService>() ?? new ClipboardService();
+
+            _viewModel = new SpecsViewModel(_hardwareInfoService, _batteryService, _clipboardService);
             BindingContext = _viewModel;
 
             LoadSpecsAsync();
@@ -34,6 +44,34 @@ namespace TechTest.Maui.Views
                 if (_hardwareInfoService != null)
                 {
                     var specs = await _hardwareInfoService.GetHardwareSpecsAsync();
+                    _specs = specs;
+                    _viewModel.Specs = specs;
+
+                    BatteryStatus? batteryStatus = null;
+                    BatteryReport? batteryReport = null;
+
+                    if (_batteryService != null)
+                    {
+                        try
+                        {
+                            batteryStatus = await Task.Run(() => _batteryService.GetCurrentStatus());
+                            _viewModel.BatteryStatus = batteryStatus;
+
+                            if (batteryStatus.HasBattery)
+                            {
+                                var reportTask = _batteryService.GenerateReportAsync();
+                                if (await Task.WhenAny(reportTask, Task.Delay(TimeSpan.FromSeconds(15))) == reportTask)
+                                {
+                                    batteryReport = await reportTask;
+                                    _viewModel.BatteryReport = batteryReport;
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // Continua exibindo as demais especificações caso a leitura da bateria falhe
+                        }
+                    }
 
                     MainThread.BeginInvokeOnMainThread(() =>
                     {
@@ -79,6 +117,28 @@ namespace TechTest.Maui.Views
                         SectionSmart.IsVisible = specs.DiskHealth != null && specs.DiskHealth.Count > 0;
                         LblSmartNote.IsVisible = specs.DiskHealth != null && specs.DiskHealth.Any(d => !d.HealthPercent.HasValue || !d.TemperatureC.HasValue);
 
+                        // Map Battery
+                        if (batteryStatus != null)
+                        {
+                            if (!batteryStatus.HasBattery)
+                            {
+                                LblBatteryStatus.Text = BatteryStatus.NoBatteryMessage;
+                                LblBatteryPower.Text = batteryStatus.PowerSource;
+                                LblBatteryHealth.Text = "N/A";
+                                LblBatteryCapacity.Text = "N/A";
+                            }
+                            else
+                            {
+                                LblBatteryStatus.Text = batteryStatus.StatusText;
+                                LblBatteryPower.Text = $"{batteryStatus.PowerSource} ({batteryStatus.ChargePercent}%)";
+                                LblBatteryHealth.Text = batteryReport?.Health ?? "Não disponível";
+                                LblBatteryCapacity.Text = batteryReport != null
+                                    ? $"{batteryReport.FullChargeCapacity} / {batteryReport.DesignCapacity} (Ciclos: {batteryReport.CycleCount})"
+                                    : "Não disponível";
+                            }
+                            SectionBattery.IsVisible = true;
+                        }
+
                         SectionSistema.IsVisible = true;
                         SectionCPU.IsVisible = true;
                         SectionRAM.IsVisible = true;
@@ -95,7 +155,7 @@ namespace TechTest.Maui.Views
                 else
                 {
                     LblMachineName.Text = Environment.MachineName;
-                    LblOS.Text = DeviceInfo.Current.Platform.ToString() + " " + DeviceInfo.Current.VersionString;
+                    LblOS.Text = DeviceInfo.Current.Platform + " " + DeviceInfo.Current.VersionString;
                     LblManufacturer.Text = DeviceInfo.Current.Manufacturer;
                     LblModel.Text = DeviceInfo.Current.Model;
 
@@ -125,6 +185,20 @@ namespace TechTest.Maui.Views
                     }
                     DriveList.ItemsSource = drives;
 
+                    var fallbackSpecs = new HardwareSpecs
+                    {
+                        Manufacturer = LblManufacturer.Text,
+                        Model = LblModel.Text,
+                        ServiceTag = LblServiceTag.Text,
+                        OSVersion = LblOS.Text,
+                        MachineName = LblMachineName.Text,
+                        CPU = LblCPU.Text,
+                        RAM = LblRAM.Text,
+                        ScreenResolution = LblResolution.Text
+                    };
+                    _specs = fallbackSpecs;
+                    _viewModel.Specs = fallbackSpecs;
+
                     SectionSistema.IsVisible = true;
                     SectionCPU.IsVisible = true;
                     SectionRAM.IsVisible = true;
@@ -141,34 +215,70 @@ namespace TechTest.Maui.Views
             {
                 LoadingIndicator.IsRunning = false;
                 LoadingIndicator.IsVisible = false;
-                await DisplayAlert("Erro", $"Erro ao carregar especificações:\n{ex.Message}", "OK");
+                await DisplayAlert("Erro", $"Erro ao carregar especificações:\n{ex}", "OK");
             }
         }
 
         private async void OnCopyAllClicked(object sender, EventArgs e)
         {
+            await _viewModel.ExecuteCopyAllInfoAsync(_specs);
+        }
+
+        private async void OnFurMarkClicked(object sender, EventArgs e)
+        {
+            BtnFurMark.IsEnabled = false;
             try
             {
-                string text =
-                    "--- ESPECIFICAÇÕES DO HARDWARE ---\n" +
-                    $"Fabricante: {LblManufacturer.Text}\n" +
-                    $"Modelo: {LblModel.Text}\n" +
-                    $"SO: {LblOS.Text}\n" +
-                    $"Nome da Máquina: {LblMachineName.Text}\n" +
-                    $"CPU: {LblCPU.Text}\n" +
-                    $"RAM: {LblRAM.Text}\n" +
-                    $"Resolução: {LblResolution.Text}\n" +
-                    $"Taxa de Atualização: {LblRefreshRate.Text}\n" +
-                    $"Service Tag: {LblServiceTag.Text}\n" +
-                    "-------------------------------";
+                var furMark = IPlatformApplication.Current?.Services?.GetService<IFurMarkService>();
+                if (furMark == null) { ShowToolStatus("Serviço do FurMark indisponível.", false); return; }
 
-                await Clipboard.Default.SetTextAsync(text);
-                await DisplayAlert("Sucesso", "Informações de hardware copiadas com sucesso para a área de transferência!", "OK");
+                var result = await furMark.LaunchAsync();
+                ShowToolStatus(result.Message, result.Success);
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Erro", $"Erro ao copiar para a área de transferência:\n{ex.Message}", "OK");
+                ShowToolStatus($"Erro: {ex}", false);
             }
+            finally
+            {
+                BtnFurMark.IsEnabled = true;
+            }
+        }
+
+        private async void OnNetworkConfigClicked(object sender, EventArgs e)
+        {
+            BtnNetworkXml.IsEnabled = false;
+            try
+            {
+                var network = IPlatformApplication.Current?.Services?.GetService<INetworkConfigService>();
+                if (network == null) { ShowToolStatus("Serviço de rede indisponível.", false); return; }
+
+                string path = await network.EnsureConfigAsync();
+                var cfg = await network.LoadAsync(); // valida o XML (XDocument) antes de informar sucesso
+                ShowToolStatus($"XML válido: {path}\nPing: {string.Join(", ", cfg.PingHosts)} | HTTP: {cfg.HttpEndpoint}", true);
+            }
+            catch (InvalidDataException ex)
+            {
+                ShowToolStatus($"XML inválido:\n{ex.Message}", false);
+            }
+            catch (Exception ex)
+            {
+                ShowToolStatus($"Erro: {ex}", false);
+            }
+            finally
+            {
+                BtnNetworkXml.IsEnabled = true;
+            }
+        }
+
+        private void ShowToolStatus(string message, bool success)
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                LblToolStatus.Text = message;
+                LblToolStatus.TextColor = Color.FromArgb(success ? "#22C55E" : "#EF4444");
+                LblToolStatus.IsVisible = true;
+            });
         }
 
         private async void OnDriversClicked(object sender, EventArgs e)
@@ -184,15 +294,15 @@ namespace TechTest.Maui.Views
 
     public class DriveDisplayInfo
     {
-        public string Name { get; set; }
-        public string DriveType { get; set; }
+        public string Name { get; set; } = "";
+        public string DriveType { get; set; } = "";
         public double UsagePercent { get; set; }
-        public string UsageText { get; set; }
+        public string UsageText { get; set; } = "";
     }
 
     public class GpuDisplayInfo
     {
-        public string Name { get; set; }
-        public string VRAM { get; set; }
+        public string Name { get; set; } = "";
+        public string VRAM { get; set; } = "";
     }
 }
