@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Devices;
 using TechTest.Maui.Services;
 using TechTest.Maui.ViewModels;
 
@@ -10,7 +12,7 @@ namespace TechTest.Maui.Views
 {
     public partial class SpecsPage : ContentPage
     {
-        private readonly IHardwareInfoService _hardwareInfoService;
+        private readonly IHardwareInfoService? _hardwareInfoService;
         private readonly SpecsViewModel _viewModel;
 
         public SpecsPage()
@@ -31,28 +33,28 @@ namespace TechTest.Maui.Views
                 LoadingIndicator.IsRunning = true;
                 LoadingIndicator.IsVisible = true;
 
-                if (_hardwareInfoService != null)
-                {
-                    var specs = await _hardwareInfoService.GetHardwareSpecsAsync();
+                var specs = await _viewModel.LoadSpecsAsync();
 
+                if (specs != null)
+                {
                     MainThread.BeginInvokeOnMainThread(() =>
                     {
                         LblManufacturer.Text = specs.Manufacturer;
                         LblModel.Text = specs.Model;
                         LblOS.Text = specs.OSVersion;
                         LblMachineName.Text = specs.MachineName;
+                        LblBattery.Text = specs.BatterySummary;
                         LblCPU.Text = specs.CPU;
                         LblRAM.Text = specs.RAM;
-                        LblResolution.Text = specs.ScreenResolution;
+                        LblResolution.Text = string.IsNullOrWhiteSpace(specs.ScreenResolution) ? "Desconhecido" : specs.ScreenResolution;
                         LblRefreshRate.Text = specs.ScreenRefreshRate > 0 ? $"{specs.ScreenRefreshRate} Hz" : "Desconhecido";
                         LblServiceTag.Text = specs.ServiceTag;
 
-                        // Map GPUs
                         var gpusList = new List<GpuDisplayInfo>();
                         foreach (var gpu in specs.GPUs)
                         {
                             double vramGb = gpu.VideoMemoryBytes / (1024.0 * 1024 * 1024);
-                            string vramText = gpu.VideoMemoryBytes > 0 ? $"{vramGb:F1} GB GDDR" : "Desconhecido";
+                            string vramText = gpu.VideoMemoryBytes > 0 ? $"{vramGb:F1} GB GDDR" : "Compartilhada";
                             gpusList.Add(new GpuDisplayInfo
                             {
                                 Name = gpu.Name,
@@ -61,7 +63,6 @@ namespace TechTest.Maui.Views
                         }
                         GpuList.ItemsSource = gpusList;
 
-                        // Map Drives
                         var drivesList = new List<DriveDisplayInfo>();
                         foreach (var drive in specs.StorageDevices)
                         {
@@ -96,8 +97,9 @@ namespace TechTest.Maui.Views
                 {
                     LblMachineName.Text = Environment.MachineName;
                     LblOS.Text = DeviceInfo.Current.Platform.ToString() + " " + DeviceInfo.Current.VersionString;
-                    LblManufacturer.Text = DeviceInfo.Current.Manufacturer;
-                    LblModel.Text = DeviceInfo.Current.Model;
+                    LblManufacturer.Text = string.IsNullOrWhiteSpace(DeviceInfo.Current.Manufacturer) ? "Desconhecido" : DeviceInfo.Current.Manufacturer;
+                    LblModel.Text = string.IsNullOrWhiteSpace(DeviceInfo.Current.Model) ? "Desconhecido" : DeviceInfo.Current.Model;
+                    LblBattery.Text = "Bateria não detectada (Computador de Mesa / Sem Bateria)";
 
                     long ramMb = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (1024 * 1024);
                     LblRAM.Text = $"{ramMb / 1024.0:F0} GB";
@@ -106,8 +108,8 @@ namespace TechTest.Maui.Views
                     LblResolution.Text = $"{mainDisplay.Width} x {mainDisplay.Height}";
                     LblRefreshRate.Text = $"{mainDisplay.RefreshRate} Hz";
 
-                    LblCPU.Text = "Requer serviço nativo";
-                    LblServiceTag.Text = "Requer serviço nativo";
+                    LblCPU.Text = "Desconhecido";
+                    LblServiceTag.Text = "Desconhecido";
 
                     var drives = new List<DriveDisplayInfo>();
                     foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady))
@@ -141,33 +143,7 @@ namespace TechTest.Maui.Views
             {
                 LoadingIndicator.IsRunning = false;
                 LoadingIndicator.IsVisible = false;
-                await DisplayAlert("Erro", $"Erro ao carregar especificações:\n{ex.Message}", "OK");
-            }
-        }
-
-        private async void OnCopyAllClicked(object sender, EventArgs e)
-        {
-            try
-            {
-                string text =
-                    "--- ESPECIFICAÇÕES DO HARDWARE ---\n" +
-                    $"Fabricante: {LblManufacturer.Text}\n" +
-                    $"Modelo: {LblModel.Text}\n" +
-                    $"SO: {LblOS.Text}\n" +
-                    $"Nome da Máquina: {LblMachineName.Text}\n" +
-                    $"CPU: {LblCPU.Text}\n" +
-                    $"RAM: {LblRAM.Text}\n" +
-                    $"Resolução: {LblResolution.Text}\n" +
-                    $"Taxa de Atualização: {LblRefreshRate.Text}\n" +
-                    $"Service Tag: {LblServiceTag.Text}\n" +
-                    "-------------------------------";
-
-                await Clipboard.Default.SetTextAsync(text);
-                await DisplayAlert("Sucesso", "Informações de hardware copiadas com sucesso para a área de transferência!", "OK");
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Erro", $"Erro ao copiar para a área de transferência:\n{ex.Message}", "OK");
+                await DisplayAlert("Erro", $"Erro ao carregar especificações:\n{ex}", "OK");
             }
         }
 
@@ -184,15 +160,15 @@ namespace TechTest.Maui.Views
 
     public class DriveDisplayInfo
     {
-        public string Name { get; set; }
-        public string DriveType { get; set; }
+        public string Name { get; set; } = "";
+        public string DriveType { get; set; } = "";
         public double UsagePercent { get; set; }
-        public string UsageText { get; set; }
+        public string UsageText { get; set; } = "";
     }
 
     public class GpuDisplayInfo
     {
-        public string Name { get; set; }
-        public string VRAM { get; set; }
+        public string Name { get; set; } = "";
+        public string VRAM { get; set; } = "";
     }
 }

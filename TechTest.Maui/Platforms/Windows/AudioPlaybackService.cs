@@ -7,7 +7,8 @@ namespace TechTest.Maui.Services;
 
 public class AudioPlaybackService : IAudioPlaybackService, IDisposable
 {
-    private WaveOutEvent? _waveOut;
+    // Instância isolada exclusivamente para o teste de alto-falantes (AudioTestPlayer)
+    private WaveOutEvent? _audioTestPlayer;
     private SignalGenerator? _signalGenerator;
     private MonoToStereoSampleProvider? _stereoProvider;
     private VolumeSampleProvider? _volumeProvider;
@@ -54,33 +55,33 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
             Volume = (float)Math.Clamp(volume, 0.0, 2.0)
         };
 
-        _waveOut = new WaveOutEvent
+        _audioTestPlayer = new WaveOutEvent
         {
             DesiredLatency = 150
         };
 
-        _waveOut.PlaybackStopped += OnPlaybackStopped;
-        _waveOut.Init(_volumeProvider);
-        _waveOut.Play();
+        _audioTestPlayer.PlaybackStopped += OnPlaybackStopped;
+        _audioTestPlayer.Init(_volumeProvider);
+        _audioTestPlayer.Play();
         _isPlaying = true;
     }
 
     public void StopTone()
     {
-        if (_waveOut != null)
+        if (_audioTestPlayer != null)
         {
             try
             {
-                _waveOut.PlaybackStopped -= OnPlaybackStopped;
-                _waveOut.Stop();
-                _waveOut.Dispose();
+                _audioTestPlayer.PlaybackStopped -= OnPlaybackStopped;
+                _audioTestPlayer.Stop();
+                _audioTestPlayer.Dispose();
             }
             catch
             {
                 // Ignorar erros ao parar
             }
 
-            _waveOut = null;
+            _audioTestPlayer = null;
         }
 
         _signalGenerator = null;
@@ -113,14 +114,13 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
     {
         _currentChannel = channel;
 
-        // Ajusta L/R no provider em andamento: troca instantânea, sem reiniciar o stream
         if (_stereoProvider != null)
         {
             ApplyChannelRouting(_stereoProvider, channel);
         }
     }
 
-    private SignalGeneratorType MapSoundType(SoundType type)
+    private static SignalGeneratorType MapSoundType(SoundType type)
     {
         return type switch
         {
@@ -133,7 +133,7 @@ public class AudioPlaybackService : IAudioPlaybackService, IDisposable
         };
     }
 
-    private void ApplyChannelRouting(MonoToStereoSampleProvider provider, AudioChannel channel)
+    private static void ApplyChannelRouting(MonoToStereoSampleProvider provider, AudioChannel channel)
     {
         switch (channel)
         {

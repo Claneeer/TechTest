@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Threading.Tasks;
 using Microsoft.Maui.Controls;
 using TechTest.Maui.Services;
 using TechTest.Maui.ViewModels;
@@ -12,7 +13,7 @@ namespace TechTest.Maui.Views
 
         public BatteryTestPage()
         {
-            InitializeComponent();
+            InitializeComponent();
             TechTest.Maui.Controls.ApprovalBar.Attach(this, TechTest.Maui.Services.TestId.Battery);
 
             var batteryService = IPlatformApplication.Current?.Services?.GetService<IBatteryService>();
@@ -34,7 +35,6 @@ namespace TechTest.Maui.Views
             }
             catch
             {
-                // Fallback for direct shell execute
                 try
                 {
 #if WINDOWS
@@ -63,7 +63,25 @@ namespace TechTest.Maui.Views
         protected override void OnAppearing()
         {
             base.OnAppearing();
+
+            // 1. Atualiza imediatamente os dados em tempo real
             _viewModel?.RefreshStatus();
+
+            // 2. Dispara automaticamente em segundo plano a leitura detalhada/geração de relatório
+            if (_viewModel != null && !_viewModel.IsReportReady && !_viewModel.IsGeneratingReport)
+            {
+                Task.Run(async () =>
+                {
+                    await Task.Delay(300); // Dá tempo à interface para renderizar suavemente
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        if (_viewModel.GenerateReportCommand.CanExecute(null))
+                        {
+                            _viewModel.GenerateReportCommand.Execute(null);
+                        }
+                    });
+                });
+            }
         }
     }
 }

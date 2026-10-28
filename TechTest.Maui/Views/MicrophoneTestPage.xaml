@@ -86,10 +86,10 @@
                 </Frame>
 
                 <!-- Action buttons -->
-                <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
+                <Grid ColumnDefinitions="*,*,*,*,*" ColumnSpacing="6">
                     <Button x:Name="BtnStart"
                             Grid.Column="0"
-                            Text="▶ Iniciar Captura"
+                            Text="▶ Iniciar"
                             BackgroundColor="{StaticResource Accent}"
                             TextColor="{StaticResource TextPrimary}"
                             FontSize="11"
@@ -106,8 +106,20 @@
                             HeightRequest="40"
                             IsEnabled="False"
                             Clicked="OnRecordClicked" />
-                    <Button x:Name="BtnStop"
+                    <Button x:Name="BtnPlay"
                             Grid.Column="2"
+                            Text="🔊 Ouvir"
+                            BackgroundColor="{StaticResource BgCard}"
+                            TextColor="{StaticResource TextPrimary}"
+                            FontSize="11"
+                            CornerRadius="8"
+                            HeightRequest="40"
+                            BorderColor="{StaticResource Border}"
+                            BorderWidth="1"
+                            IsEnabled="False"
+                            Clicked="OnPlayRecordingClicked" />
+                    <Button x:Name="BtnStop"
+                            Grid.Column="3"
                             Text="⏹ Parar"
                             BackgroundColor="{StaticResource BgCard}"
                             TextColor="{StaticResource TextPrimary}"
@@ -119,8 +131,8 @@
                             IsEnabled="False"
                             Clicked="OnStopClicked" />
                     <Button x:Name="BtnOpenFolder"
-                            Grid.Column="3"
-                            Text="📂 Abrir Pasta"
+                            Grid.Column="4"
+                            Text="📂 Pasta"
                             BackgroundColor="{StaticResource BgCard}"
                             TextColor="{StaticResource TextPrimary}"
                             FontSize="11"

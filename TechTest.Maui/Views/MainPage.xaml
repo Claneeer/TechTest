@@ -6,6 +6,42 @@
              BackgroundColor="{StaticResource BgPrimary}"
              Shell.NavBarIsVisible="False">
 
+    <ContentPage.MenuBarItems>
+        <MenuBarItem Text="Resolução">
+            <MenuFlyoutSubItem Text="Aspect Ratio 16:9">
+                <MenuFlyoutItem Text="1366 x 768 (HD / WXGA)"
+                                Command="{Binding SetResolutionCommand}"
+                                CommandParameter="1366x768" />
+                <MenuFlyoutItem Text="1920 x 1080 (Full HD)"
+                                Command="{Binding SetResolutionCommand}"
+                                CommandParameter="1920x1080" />
+                <MenuFlyoutItem Text="2560 x 1440 (QHD / 2K)"
+                                Command="{Binding SetResolutionCommand}"
+                                CommandParameter="2560x1440" />
+                <MenuFlyoutItem Text="3840 x 2160 (UHD / 4K)"
+                                Command="{Binding SetResolutionCommand}"
+                                CommandParameter="3840x2160" />
+            </MenuFlyoutSubItem>
+            <MenuFlyoutSubItem Text="Aspect Ratio 16:10">
+                <MenuFlyoutItem Text="1920 x 1200 (WUXGA)"
+                                Command="{Binding SetResolutionCommand}"
+                                CommandParameter="1920x1200" />
+            </MenuFlyoutSubItem>
+        </MenuBarItem>
+
+        <MenuBarItem Text="Ferramentas">
+            <MenuFlyoutItem Text="🔥 Iniciar FurMark Stress"
+                            Command="{Binding LaunchFurMarkCommand}" />
+            <MenuFlyoutItem Text="🌐 Diagnóstico de Internet (XML)"
+                            Command="{Binding RunInternetTestCommand}" />
+            <MenuFlyoutSeparator />
+            <MenuFlyoutItem Text="📋 Copiar Número de Série (SN)"
+                            Command="{Binding CopySerialNumberCommand}" />
+            <MenuFlyoutItem Text="📋 Copiar Relatório Completo"
+                            Command="{Binding CopyAllInfoCommand}" />
+        </MenuBarItem>
+    </ContentPage.MenuBarItems>
+
     <Grid RowDefinitions="*,Auto">
         <!-- Main scrollable content -->
         <ScrollView Grid.Row="0">
@@ -389,7 +425,7 @@
               BackgroundColor="{StaticResource BgDark}"
               HeightRequest="50"
               Padding="15,0"
-               ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto">
+              ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 
             <!-- System info label -->
             <Label x:Name="LblSysInfo"
@@ -410,7 +446,7 @@
                     CornerRadius="4"
                     HeightRequest="34"
                     Padding="12,0"
-                    Margin="5,0"
+                    Margin="4,0"
                     Clicked="OnStartSequentialClicked" />
 
             <!-- Laudo técnico -->
@@ -425,12 +461,27 @@
                     CornerRadius="4"
                     HeightRequest="34"
                     Padding="12,0"
-                    Margin="5,0"
+                    Margin="4,0"
                     Clicked="OnExportReportClicked" />
+
+            <!-- Internet XML Test -->
+            <Button x:Name="BtnInternetXml"
+                    Grid.Column="3"
+                    Text="🌐 Rede (XML)"
+                    Command="{Binding RunInternetTestCommand}"
+                    BackgroundColor="{StaticResource BgCard}"
+                    TextColor="{StaticResource TextPrimary}"
+                    FontSize="11"
+                    BorderColor="{StaticResource Border}"
+                    BorderWidth="1"
+                    CornerRadius="4"
+                    HeightRequest="34"
+                    Padding="12,0"
+                    Margin="4,0" />
 
             <!-- FurMark button (Windows only) -->
             <Button x:Name="BtnFurMark"
-                    Grid.Column="3"
+                    Grid.Column="4"
                     Text="🔥 FurMark Stress"
                     BackgroundColor="{StaticResource BgCard}"
                     TextColor="{StaticResource TextPrimary}"
@@ -440,7 +491,7 @@
                     CornerRadius="4"
                     HeightRequest="34"
                     Padding="12,0"
-                    Margin="5,0"
+                    Margin="4,0"
                     Clicked="OnFurMarkClicked">
                 <Button.IsVisible>
                     <OnPlatform x:TypeArguments="x:Boolean">
@@ -450,18 +501,57 @@
                 </Button.IsVisible>
             </Button>
 
+            <!-- Menu Flyout de Resolução (16:9 e 16:10) -->
+            <Button x:Name="BtnResolution"
+                    Grid.Column="5"
+                    Text="📐 Resolução"
+                    BackgroundColor="{StaticResource BgCard}"
+                    TextColor="{StaticResource TextPrimary}"
+                    FontSize="11"
+                    BorderColor="{StaticResource Border}"
+                    BorderWidth="1"
+                    CornerRadius="4"
+                    HeightRequest="34"
+                    Padding="12,0"
+                    Margin="4,0"
+                    Clicked="OnResolutionMenuClicked">
+                <FlyoutBase.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuFlyoutSubItem Text="16:9 (Widescreen)">
+                            <MenuFlyoutItem Text="1366 x 768 (HD / WXGA)"
+                                            Command="{Binding SetResolutionCommand}"
+                                            CommandParameter="1366x768" />
+                            <MenuFlyoutItem Text="1920 x 1080 (Full HD)"
+                                            Command="{Binding SetResolutionCommand}"
+                                            CommandParameter="1920x1080" />
+                            <MenuFlyoutItem Text="2560 x 1440 (QHD / 2K)"
+                                            Command="{Binding SetResolutionCommand}"
+                                            CommandParameter="2560x1440" />
+                            <MenuFlyoutItem Text="3840 x 2160 (UHD / 4K)"
+                                            Command="{Binding SetResolutionCommand}"
+                                            CommandParameter="3840x2160" />
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutSubItem Text="16:10">
+                            <MenuFlyoutItem Text="1920 x 1200 (WUXGA)"
+                                            Command="{Binding SetResolutionCommand}"
+                                            CommandParameter="1920x1200" />
+                        </MenuFlyoutSubItem>
+                    </MenuFlyout>
+                </FlyoutBase.ContextFlyout>
+            </Button>
+
             <!-- Scale label -->
-            <Label Grid.Column="4"
-                   Text="🖥 Ajustar Tela:"
+            <Label Grid.Column="6"
+                   Text="🖥 Escala:"
                    FontSize="11"
                    TextColor="{StaticResource TextSecondary}"
                    VerticalTextAlignment="Center"
-                   Margin="10,0,5,0" />
+                   Margin="8,0,4,0" />
 
             <!-- Scale picker -->
             <Picker x:Name="PickerScale"
-                    Grid.Column="5"
-                    WidthRequest="130"
+                    Grid.Column="7"
+                    WidthRequest="110"
                     HeightRequest="34"
                     FontSize="11"
                     TextColor="{StaticResource TextPrimary}"

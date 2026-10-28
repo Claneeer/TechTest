@@ -1,8 +1,8 @@
 using System;
-using System.Diagnostics;
-using System.IO;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading.Tasks;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
 using TechTest.Maui.Helpers;
 using TechTest.Maui.Services;
@@ -12,7 +12,8 @@ namespace TechTest.Maui.Views
 {
     public partial class MainPage : ContentPage
     {
-        private readonly IHardwareInfoService _hardwareInfoService;
+        private readonly IHardwareInfoService? _hardwareInfoService;
+        private readonly MainViewModel _viewModel;
         private readonly Dictionary<TestId, Label> _badges = new();
 
         public MainPage()
@@ -20,7 +21,8 @@ namespace TechTest.Maui.Views
             InitializeComponent();
 
             _hardwareInfoService = IPlatformApplication.Current?.Services?.GetService<IHardwareInfoService>();
-            BindingContext = new MainViewModel();
+            _viewModel = new MainViewModel(_hardwareInfoService);
+            BindingContext = _viewModel;
 
             PickerScale.SelectedIndex = 0;
             LoadSystemInfoAsync();
@@ -40,7 +42,6 @@ namespace TechTest.Maui.Views
             TestSession.Current.Changed -= RefreshBadges;
         }
 
-        /// <summary>Adiciona em cada card de teste um badge com o status vindo do TestSession.</summary>
         private void BuildStatusBadges()
         {
             var map = new (Frame Card, TestId Id)[]
@@ -140,7 +141,7 @@ namespace TechTest.Maui.Views
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Erro", $"Não foi possível gerar o laudo:\n{ex.Message}", "OK");
+                await DisplayAlert("Erro", $"Não foi possível gerar o laudo:\n{ex}", "OK");
             }
             finally
             {
@@ -215,7 +216,7 @@ namespace TechTest.Maui.Views
         {
             if (sender is View view)
             {
-                Frame frame = FindParentFrame(view);
+                Frame? frame = FindParentFrame(view);
                 if (frame != null)
                 {
                     frame.BackgroundColor = Color.FromArgb("#26264C");
@@ -228,7 +229,7 @@ namespace TechTest.Maui.Views
         {
             if (sender is View view)
             {
-                Frame frame = FindParentFrame(view);
+                Frame? frame = FindParentFrame(view);
                 if (frame != null)
                 {
                     frame.BackgroundColor = Color.FromArgb("#1C1C38");
@@ -237,10 +238,10 @@ namespace TechTest.Maui.Views
             }
         }
 
-        private Frame FindParentFrame(View view)
+        private Frame? FindParentFrame(View view)
         {
             if (view is Frame frame) return frame;
-            Element parent = view.Parent;
+            Element? parent = view.Parent;
             while (parent != null)
             {
                 if (parent is Frame f) return f;
@@ -266,43 +267,41 @@ namespace TechTest.Maui.Views
             ResponsiveHelper.SetScale(scale);
         }
 
+        private async void OnResolutionMenuClicked(object sender, EventArgs e)
+        {
+            string? choice = await DisplayActionSheet(
+                "Selecionar Resolução da Janela (16:9 / 16:10)",
+                "Cancelar",
+                null,
+                "16:9 — 1366 x 768 (HD / WXGA)",
+                "16:9 — 1920 x 1080 (Full HD)",
+                "16:9 — 2560 x 1440 (QHD / 2K)",
+                "16:9 — 3840 x 2160 (UHD / 4K)",
+                "16:10 — 1920 x 1200 (WUXGA)");
+
+            switch (choice)
+            {
+                case "16:9 — 1366 x 768 (HD / WXGA)":
+                    WindowSizeService.SetResolution(1366, 768);
+                    break;
+                case "16:9 — 1920 x 1080 (Full HD)":
+                    WindowSizeService.SetResolution(1920, 1080);
+                    break;
+                case "16:9 — 2560 x 1440 (QHD / 2K)":
+                    WindowSizeService.SetResolution(2560, 1440);
+                    break;
+                case "16:9 — 3840 x 2160 (UHD / 4K)":
+                    WindowSizeService.SetResolution(3840, 2160);
+                    break;
+                case "16:10 — 1920 x 1200 (WUXGA)":
+                    WindowSizeService.SetResolution(1920, 1200);
+                    break;
+            }
+        }
+
         private async void OnFurMarkClicked(object sender, EventArgs e)
         {
-#if WINDOWS
-            try
-            {
-                string appDir = AppDomain.CurrentDomain.BaseDirectory;
-                string furmarkPath = Path.Combine(appDir, "FurMark.exe");
-
-                if (!File.Exists(furmarkPath))
-                    furmarkPath = Path.Combine(appDir, "furmark.exe");
-                if (!File.Exists(furmarkPath))
-                    furmarkPath = Path.Combine(appDir, "FurMark_GUI.exe");
-
-                if (File.Exists(furmarkPath))
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = furmarkPath,
-                        UseShellExecute = true,
-                        WorkingDirectory = appDir
-                    });
-                }
-                else
-                {
-                    await DisplayAlert("FurMark não encontrado",
-                        $"FurMark não encontrado na pasta do programa.\n\n" +
-                        $"Coloque o arquivo 'FurMark.exe' na mesma pasta do TechTest:\n{appDir}",
-                        "OK");
-                }
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Erro", $"Erro ao abrir FurMark:\n{ex.Message}", "OK");
-            }
-#else
-            await DisplayAlert("Indisponível", "FurMark está disponível apenas no Windows.", "OK");
-#endif
+            await _viewModel.OnLaunchFurMarkAsync();
         }
     }
 }

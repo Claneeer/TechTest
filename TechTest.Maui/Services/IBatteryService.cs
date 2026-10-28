@@ -1,7 +1,10 @@
+using System.Threading.Tasks;
+
 namespace TechTest.Maui.Services;
 
 public class BatteryStatus
 {
+    public bool HasBattery { get; set; } = true;
     public int ChargePercent { get; set; }
     public bool IsCharging { get; set; }
     public string PowerSource { get; set; } = "";
@@ -11,6 +14,7 @@ public class BatteryStatus
 
 public class BatteryReport
 {
+    public bool HasBattery { get; set; } = true;
     public string DesignCapacity { get; set; } = "";
     public string FullChargeCapacity { get; set; } = "";
     public string Health { get; set; } = "";

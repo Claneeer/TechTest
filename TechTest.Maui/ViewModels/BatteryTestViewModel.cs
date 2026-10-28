@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
 using TechTest.Maui.Services;
 
@@ -8,7 +9,9 @@ namespace TechTest.Maui.ViewModels;
 
 public class BatteryTestViewModel : BaseViewModel
 {
-    private readonly IBatteryService _batteryService;
+    public const string DesktopNoBatteryMessage = "Bateria não detectada (Computador de Mesa / Sem Bateria)";
+
+    private readonly IBatteryService? _batteryService;
 
     private int _chargePercent;
     private bool _isCharging;
@@ -106,14 +109,16 @@ public class BatteryTestViewModel : BaseViewModel
     public ICommand RefreshCommand { get; }
     public ICommand GenerateReportCommand { get; }
 
-    public BatteryTestViewModel(IBatteryService batteryService)
+    public BatteryTestViewModel(IBatteryService? batteryService)
     {
         _batteryService = batteryService;
 
         RefreshCommand = new Command(RefreshStatus);
         GenerateReportCommand = new Command(async () => await GenerateReportAsync());
 
+        // Execução imediata da detecção e geração do relatório detalhado
         RefreshStatus();
+        _ = GenerateReportAsync();
     }
 
     public void RefreshStatus()
@@ -129,12 +134,21 @@ public class BatteryTestViewModel : BaseViewModel
                 IsCharging = status.IsCharging;
                 PowerSource = status.PowerSource;
                 TimeRemaining = status.TimeRemaining;
-                StatusText = status.StatusText;
+                StatusText = status.HasBattery ? status.StatusText : DesktopNoBatteryMessage;
+
+                if (!status.HasBattery)
+                {
+                    Health = DesktopNoBatteryMessage;
+                    DesignCapacity = "N/A (Sem Bateria)";
+                    FullChargeCapacity = "N/A (Sem Bateria)";
+                    CycleCount = "N/A";
+                    Manufacturer = "N/A";
+                }
             }
         }
         catch
         {
-            StatusText = "Erro ao obter status";
+            StatusText = DesktopNoBatteryMessage;
         }
     }
 
@@ -150,13 +164,30 @@ public class BatteryTestViewModel : BaseViewModel
             var report = await _batteryService.GenerateReportAsync();
             if (report != null)
             {
-                DesignCapacity = report.DesignCapacity;
-                FullChargeCapacity = report.FullChargeCapacity;
-                Health = report.Health;
-                CycleCount = report.CycleCount;
-                Manufacturer = report.Manufacturer;
-                ReportFilePath = report.ReportFilePath;
-                IsReportReady = report.IsReportReady;
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    if (!report.HasBattery)
+                    {
+                        StatusText = DesktopNoBatteryMessage;
+                        Health = DesktopNoBatteryMessage;
+                        DesignCapacity = "N/A (Sem Bateria)";
+                        FullChargeCapacity = "N/A (Sem Bateria)";
+                        CycleCount = "N/A";
+                        Manufacturer = "N/A";
+                        ReportFilePath = "";
+                        IsReportReady = false;
+                    }
+                    else
+                    {
+                        DesignCapacity = string.IsNullOrWhiteSpace(report.DesignCapacity) ? "Não disponível" : report.DesignCapacity;
+                        FullChargeCapacity = string.IsNullOrWhiteSpace(report.FullChargeCapacity) ? "Não disponível" : report.FullChargeCapacity;
+                        Health = string.IsNullOrWhiteSpace(report.Health) ? "Não disponível" : report.Health;
+                        CycleCount = string.IsNullOrWhiteSpace(report.CycleCount) ? "Não informado" : report.CycleCount;
+                        Manufacturer = string.IsNullOrWhiteSpace(report.Manufacturer) ? "Integrada" : report.Manufacturer;
+                        ReportFilePath = report.ReportFilePath;
+                        IsReportReady = report.IsReportReady;
+                    }
+                });
             }
         }
         catch

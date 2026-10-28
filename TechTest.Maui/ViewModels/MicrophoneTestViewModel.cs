@@ -1,17 +1,20 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Maui.Controls;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Graphics;
 using TechTest.Maui.Services;
 
 namespace TechTest.Maui.ViewModels;
 
-public class MicrophoneTestViewModel : BaseViewModel
+public class MicrophoneTestViewModel : BaseViewModel, IDisposable
 {
-    private readonly IAudioCaptureService _captureService;
-    private readonly IAudioPlaybackService _playbackService;
+    private readonly IAudioCaptureService? _captureService;
+    private CancellationTokenSource? _recordingCts;
+    private bool _disposed;
 
     private string _statusText = "Pronto para testar";
     private Color _statusColor = Color.FromArgb("#A0A0B0");
@@ -21,7 +24,11 @@ public class MicrophoneTestViewModel : BaseViewModel
     private float[] _waveformSamples = Array.Empty<float>();
     private List<string> _devices = new();
     private float _sensitivity = 1.0f;
-    private string _outputPath = "";
+    private readonly string _outputPath;
+
+    public string OutputPath => _outputPath;
+
+    public event EventHandler<string>? PrivacyBlockedError;
 
     public string StatusText
     {
@@ -86,10 +93,9 @@ public class MicrophoneTestViewModel : BaseViewModel
         }
     }
 
-    public MicrophoneTestViewModel(IAudioCaptureService captureService, IAudioPlaybackService playbackService)
+    public MicrophoneTestViewModel(IAudioCaptureService? captureService, IAudioPlaybackService? _ = null)
     {
         _captureService = captureService;
-        _playbackService = playbackService;
 
         if (_captureService != null)
         {
@@ -101,73 +107,141 @@ public class MicrophoneTestViewModel : BaseViewModel
         _outputPath = Path.Combine(techTestDir, "mic_test.wav");
     }
 
-    private void OnDataAvailable(object sender, AudioDataEventArgs e)
+    private void OnDataAvailable(object? sender, AudioDataEventArgs e)
     {
         VolumeLevel = e.Peak;
         WaveformSamples = e.WaveformSamples;
     }
 
-    public async void LoadDevices()
+    public async Task LoadDevicesAsync()
     {
         if (_captureService == null) return;
         try
         {
             var deviceList = await _captureService.GetDevicesAsync();
-            Devices = deviceList ?? new List<string>();
+            if (deviceList != null && deviceList.Count > 0)
+            {
+                Devices = deviceList;
+                StatusText = $"{deviceList.Count} microfone(s) detectado(s). Pronto para testar.";
+                StatusColor = Color.FromArgb("#A0A0B0");
+            }
+            else
+            {
+                Devices = new List<string> { "Nenhum microfone detectado" };
+                StatusText = "⚠️ Nenhum dispositivo de entrada de áudio encontrado.";
+                StatusColor = Color.FromArgb("#EAB308");
+            }
         }
-        catch
+        catch (Exception ex)
         {
+            Debug.WriteLine($"Erro ao listar microfones: {ex}");
             Devices = new List<string> { "Microfone Padrão" };
         }
     }
 
-    public void StartCapture(int deviceIndex)
+    public async void LoadDevices()
+    {
+        await LoadDevicesAsync();
+    }
+
+    public async void StartCapture(int deviceIndex)
     {
         if (_captureService == null) return;
 
         try
         {
-            _captureService.StartCapture(deviceIndex, _sensitivity);
+            // Valida permissão de microfone (com fallback seguro para modo WindowsPackageType=None)
+            try
+            {
+                var status = await Permissions.CheckStatusAsync<Permissions.Microphone>();
+                if (status != PermissionStatus.Granted)
+                {
+                    status = await Permissions.RequestAsync<Permissions.Microphone>();
+                }
+
+                if (status == PermissionStatus.Denied || status == PermissionStatus.Restricted)
+                {
+                    throw new UnauthorizedAccessException(
+                        "Permissão de acesso ao microfone negada nas Configurações de Privacidade do Windows.");
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                throw;
+            }
+            catch (Exception permEx)
+            {
+                Debug.WriteLine($"Aviso Permissions.Microphone (Unpackaged): {permEx.Message}");
+            }
+
+            CancelRecordingToken();
+            int safeIndex = Math.Max(0, deviceIndex);
+            _captureService.StartCapture(safeIndex, _sensitivity);
             IsCapturing = true;
-            StatusText = "Escutando...";
-            StatusColor = Color.FromArgb("#22C55E"); // Green
+            StatusText = "🎤 Escutando microfone...";
+            StatusColor = Color.FromArgb("#22C55E");
+        }
+        catch (UnauthorizedAccessException uaEx)
+        {
+            IsCapturing = false;
+            StatusText = $"🔒 Microfone bloqueado: {uaEx.Message}";
+            StatusColor = Color.FromArgb("#EF4444");
+            PrivacyBlockedError?.Invoke(this, uaEx.Message);
         }
         catch (Exception ex)
         {
+            IsCapturing = false;
             StatusText = $"Erro: {ex.Message}";
-            StatusColor = Color.FromArgb("#EF4444"); // Red
+            StatusColor = Color.FromArgb("#EF4444");
         }
     }
 
     public async void StartRecording()
     {
-        if (_captureService == null || !IsCapturing || IsRecording) return;
+        if (_captureService == null || !IsCapturing) return;
+
+        CancelRecordingToken();
+        if (IsRecording)
+        {
+            try { _captureService.StopRecording(); } catch { }
+            IsRecording = false;
+        }
+
+        _recordingCts = new CancellationTokenSource();
+        var token = _recordingCts.Token;
 
         try
         {
-            StatusText = "Gravando áudio (5s)...";
-            StatusColor = Color.FromArgb("#EF4444"); // Red
+            StatusText = "⏺ Gravando áudio (5s)...";
+            StatusColor = Color.FromArgb("#EF4444");
             IsRecording = true;
 
             await _captureService.StartRecording(_outputPath);
 
-            // Wait 5 seconds to complete recording
-            await Task.Delay(5000);
+            await Task.Delay(5000, token);
 
+            if (!token.IsCancellationRequested && IsRecording)
+            {
+                StopRecording(completedNormally: true);
+            }
+        }
+        catch (OperationCanceledException)
+        {
             if (IsRecording)
             {
-                StopRecording();
+                try { _captureService.StopRecording(); } catch { }
+                IsRecording = false;
             }
         }
         catch (Exception ex)
         {
             StatusText = $"Erro de gravação: {ex.Message}";
-            StatusColor = Color.FromArgb("#EF4444"); // Red
+            StatusColor = Color.FromArgb("#EF4444");
             IsRecording = false;
         }
     }
 
-    private void StopRecording()
+    private void StopRecording(bool completedNormally)
     {
         if (_captureService == null || !IsRecording) return;
 
@@ -175,11 +249,12 @@ public class MicrophoneTestViewModel : BaseViewModel
         {
             _captureService.StopRecording();
             IsRecording = false;
-            StatusText = "Gravação concluída!";
-            StatusColor = Color.FromArgb("#3B82F6"); // Blue
 
-            // Optional: playback recorded audio automatically or notify the user
-            PlayRecording();
+            if (completedNormally)
+            {
+                StatusText = "✅ Gravação concluída! Clique em '🔊 Ouvir' para reproduzir.";
+                StatusColor = Color.FromArgb("#10B981");
+            }
         }
         catch (Exception ex)
         {
@@ -188,28 +263,28 @@ public class MicrophoneTestViewModel : BaseViewModel
         }
     }
 
-    private void PlayRecording()
+    public void CancelRecordingToken()
     {
-        if (_playbackService == null || !File.Exists(_outputPath)) return;
-
-        try
+        if (_recordingCts != null)
         {
-            // If the playback service supports playing file paths, we can call it.
-            // Since IAudioPlaybackService is designed for Tone generator, we can play a notification beep or tone,
-            // or if they have implemented PlayTone. Let's make sure we do not crash if the tone generator is simple.
-            // Let's notify that audio is saved.
-            StatusText = $"Gravação salva em: mic_test.wav! Tocando bip...";
-            StatusColor = Color.FromArgb("#10B981");
-            _playbackService.PlayTone(440, AudioChannel.Both, SoundType.Beep, 0.5);
-        }
-        catch
-        {
-            // Silencioso
+            try
+            {
+                if (!_recordingCts.IsCancellationRequested)
+                    _recordingCts.Cancel();
+                _recordingCts.Dispose();
+            }
+            catch { }
+            finally
+            {
+                _recordingCts = null;
+            }
         }
     }
 
     public void StopCapture()
     {
+        CancelRecordingToken();
+
         if (_captureService == null) return;
 
         try
@@ -227,9 +302,18 @@ public class MicrophoneTestViewModel : BaseViewModel
             StatusText = "Pronto para testar";
             StatusColor = Color.FromArgb("#A0A0B0");
         }
-        catch
+        catch { }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        StopCapture();
+        if (_captureService != null)
         {
-            // Silencioso
+            _captureService.DataAvailable -= OnDataAvailable;
         }
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 }

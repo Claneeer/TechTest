@@ -1,7 +1,8 @@
 #if WINDOWS
 using System;
-using System.IO;
 using System.Diagnostics;
+using System.IO;
+using System.Management;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using BatteryPower = Microsoft.Maui.Devices.Battery;
@@ -10,171 +11,287 @@ namespace TechTest.Maui.Services;
 
 public class BatteryService : IBatteryService
 {
+    public const string DesktopNoBatteryMessage = "Bateria não detectada (Computador de Mesa / Sem Bateria)";
+
     public BatteryStatus GetCurrentStatus()
     {
         var status = new BatteryStatus();
+        bool wmiBatteryDetected = false;
 
         try
         {
-            double chargeLevel = BatteryPower.Default.ChargeLevel;
-            status.ChargePercent = (int)Math.Round(chargeLevel * 100);
+            using var searcher = new ManagementObjectSearcher(
+                "SELECT EstimatedChargeRemaining, BatteryStatus, EstimatedRunTime FROM Win32_Battery");
 
+            foreach (ManagementBaseObject obj in searcher.Get())
+            {
+                using (obj)
+                {
+                    wmiBatteryDetected = true;
+
+                    if (obj["EstimatedChargeRemaining"] != null &&
+                        int.TryParse(obj["EstimatedChargeRemaining"]?.ToString(), out int pct))
+                    {
+                        status.ChargePercent = Math.Clamp(pct, 0, 100);
+                    }
+
+                    int batteryStatus = 0;
+                    if (obj["BatteryStatus"] != null)
+                        int.TryParse(obj["BatteryStatus"]?.ToString(), out batteryStatus);
+
+                    // Win32_Battery.BatteryStatus:
+                    // 1 = Discharging, 2 = AC (Not charging/Full), 3 = Fully Charged, 4 = Low, 5 = Critical,
+                    // 6 = Charging, 7 = Charging High, 8 = Charging Low, 9 = Charging Critical
+                    status.IsCharging = batteryStatus is 2 or 6 or 7 or 8 or 9;
+                    status.PowerSource = batteryStatus is 1 or 4 or 5 ? "Bateria (DC)" : "Energia AC";
+                    status.StatusText = batteryStatus switch
+                    {
+                        1 => "Descarregando",
+                        2 => "Conectada à Tomada (AC)",
+                        3 => "Completa",
+                        4 => "Carga Baixa",
+                        5 => "Carga Crítica",
+                        6 or 7 or 8 or 9 => "Carregando",
+                        _ => "Presente"
+                    };
+
+                    break;
+                }
+            }
+        }
+        catch
+        {
+            // Fallback para API MAUI se WMI falhar
+        }
+
+        try
+        {
             var batteryState = BatteryPower.Default.State;
-            status.IsCharging = batteryState == BatteryState.Charging;
-
             var powerSource = BatteryPower.Default.PowerSource;
-            status.PowerSource = powerSource switch
-            {
-                BatteryPowerSource.AC => "Energia AC",
-                BatteryPowerSource.Battery => "Bateria",
-                BatteryPowerSource.Usb => "USB",
-                _ => "Desconhecido"
-            };
 
-            status.StatusText = batteryState switch
+            if (!wmiBatteryDetected && batteryState == Microsoft.Maui.Devices.BatteryState.NotPresent)
             {
-                BatteryState.Charging => "Carregando",
-                BatteryState.Discharging => "Descarregando",
-                BatteryState.Full => "Completa",
-                BatteryState.NotCharging => "Não carregando",
-                BatteryState.NotPresent => "Não presente",
-                _ => "Desconhecido"
-            };
+                status.HasBattery = false;
+                status.ChargePercent = 0;
+                status.IsCharging = false;
+                status.PowerSource = "Energia AC (Desktop)";
+                status.StatusText = DesktopNoBatteryMessage;
+                status.TimeRemaining = "N/A";
+                return status;
+            }
 
+            if (!wmiBatteryDetected)
+            {
+                double chargeLevel = BatteryPower.Default.ChargeLevel;
+                status.ChargePercent = chargeLevel >= 0 ? (int)Math.Round(chargeLevel * 100) : 0;
+                status.IsCharging = batteryState == Microsoft.Maui.Devices.BatteryState.Charging;
+                status.PowerSource = powerSource switch
+                {
+                    Microsoft.Maui.Devices.BatteryPowerSource.AC => "Energia AC",
+                    Microsoft.Maui.Devices.BatteryPowerSource.Battery => "Bateria (DC)",
+                    Microsoft.Maui.Devices.BatteryPowerSource.Usb => "USB",
+                    _ => "Desconhecido"
+                };
+                status.StatusText = batteryState switch
+                {
+                    Microsoft.Maui.Devices.BatteryState.Charging => "Carregando",
+                    Microsoft.Maui.Devices.BatteryState.Discharging => "Descarregando",
+                    Microsoft.Maui.Devices.BatteryState.Full => "Completa",
+                    Microsoft.Maui.Devices.BatteryState.NotCharging => "Não carregando (AC)",
+                    Microsoft.Maui.Devices.BatteryState.NotPresent => DesktopNoBatteryMessage,
+                    _ => "Desconhecido"
+                };
+            }
+
+            status.HasBattery = true;
             status.TimeRemaining = EstimateTimeRemaining(status);
         }
         catch
         {
-            status.ChargePercent = 0;
-            status.PowerSource = "Desconhecido";
-            status.StatusText = "Erro ao obter status";
-            status.TimeRemaining = "--:--";
+            if (!wmiBatteryDetected)
+            {
+                status.HasBattery = false;
+                status.ChargePercent = 0;
+                status.PowerSource = "Energia AC";
+                status.StatusText = DesktopNoBatteryMessage;
+                status.TimeRemaining = "N/A";
+            }
         }
 
         return status;
     }
 
-    private string EstimateTimeRemaining(BatteryStatus status)
+    private static string EstimateTimeRemaining(BatteryStatus status)
     {
+        if (!status.HasBattery)
+            return "N/A";
+
         if (status.IsCharging)
-            return "Calculando...";
+            return "Carregando...";
 
         if (status.ChargePercent >= 100)
             return "Completa";
 
-        return "Estimando...";
+        return "Em uso";
     }
 
     public async Task<BatteryReport> GenerateReportAsync()
     {
-        var report = new BatteryReport();
-
-        try
+        return await Task.Run(async () =>
         {
-            string reportPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "TechTest", "battery-report.html");
-
-            string? reportDir = Path.GetDirectoryName(reportPath);
-            if (!string.IsNullOrEmpty(reportDir) && !Directory.Exists(reportDir))
+            var report = new BatteryReport();
+            var currentStatus = GetCurrentStatus();
+            if (!currentStatus.HasBattery)
             {
-                Directory.CreateDirectory(reportDir);
+                report.HasBattery = false;
+                report.Health = DesktopNoBatteryMessage;
+                report.DesignCapacity = "N/A (Sem Bateria)";
+                report.FullChargeCapacity = "N/A (Sem Bateria)";
+                report.CycleCount = "N/A";
+                report.Manufacturer = "N/A";
+                report.IsReportReady = false;
+                return report;
             }
 
-            if (File.Exists(reportPath))
+            // 1. Leitura rápida via WMI para preenchimento imediato
+            TryReadWmiBattery(report);
+
+            try
             {
-                try { File.Delete(reportPath); } catch { }
+                // Caminho exigido: %TEMP%\battery_report.html
+                string reportPath = Path.Combine(Path.GetTempPath(), "battery_report.html");
+
+                if (File.Exists(reportPath))
+                {
+                    try { File.Delete(reportPath); } catch { }
+                }
+
+                var processInfo = new ProcessStartInfo
+                {
+                    FileName = "powercfg",
+                    Arguments = $"/batteryreport /output \"{reportPath}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var process = new Process { StartInfo = processInfo };
+                process.Start();
+                await process.WaitForExitAsync();
+
+                if (File.Exists(reportPath))
+                {
+                    report.ReportFilePath = reportPath;
+                    report.IsReportReady = true;
+
+                    string htmlContent = await File.ReadAllTextAsync(reportPath);
+                    ParseBatteryReport(htmlContent, report);
+                }
+                else
+                {
+                    report.IsReportReady = !string.IsNullOrEmpty(report.Health) && report.Health != "Não disponível";
+                }
             }
-
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "powercfg",
-                Arguments = $"/batteryreport /output \"{reportPath}\"",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                Verb = ""
-            };
-
-            using var process = new Process { StartInfo = processInfo };
-            process.Start();
-
-            await process.WaitForExitAsync();
-
-            if (File.Exists(reportPath))
-            {
-                report.ReportFilePath = reportPath;
-                report.IsReportReady = true;
-
-                string htmlContent = await File.ReadAllTextAsync(reportPath);
-                ParseBatteryReport(htmlContent, report);
-            }
-            else
+            catch
             {
                 report.IsReportReady = false;
-                report.ReportFilePath = "";
+            }
+
+            return report;
+        });
+    }
+
+    private static void TryReadWmiBattery(BatteryReport report)
+    {
+        try
+        {
+            var scope = new ManagementScope(@"\\.\root\wmi");
+            scope.Connect();
+
+            long designCap = 0;
+            long fullCap = 0;
+
+            using (var s = new ManagementObjectSearcher(scope, new ObjectQuery("SELECT DesignedCapacity, CycleCount FROM BatteryStaticData")))
+            {
+                foreach (ManagementObject obj in s.Get())
+                {
+                    using (obj)
+                    {
+                        if (obj["DesignedCapacity"] != null && long.TryParse(obj["DesignedCapacity"]?.ToString(), out long dc) && dc > 0)
+                            designCap = dc;
+
+                        if (obj["CycleCount"] != null && int.TryParse(obj["CycleCount"]?.ToString(), out int cc) && cc > 0)
+                            report.CycleCount = cc.ToString();
+
+                        break;
+                    }
+                }
+            }
+
+            using (var s = new ManagementObjectSearcher(scope, new ObjectQuery("SELECT FullChargedCapacity FROM BatteryFullChargedCapacity")))
+            {
+                foreach (ManagementObject obj in s.Get())
+                {
+                    using (obj)
+                    {
+                        if (obj["FullChargedCapacity"] != null && long.TryParse(obj["FullChargedCapacity"]?.ToString(), out long fc) && fc > 0)
+                            fullCap = fc;
+
+                        break;
+                    }
+                }
+            }
+
+            if (designCap > 0 && fullCap > 0)
+            {
+                report.DesignCapacity = $"{designCap} mWh";
+                report.FullChargeCapacity = $"{fullCap} mWh";
+                double health = ((double)fullCap / designCap) * 100.0;
+                report.Health = $"{Math.Min(100.0, health):F1}%";
             }
         }
         catch
         {
-            report.IsReportReady = false;
+            // WMI Battery não suportado nesta máquina
         }
-
-        return report;
     }
 
-    private void ParseBatteryReport(string html, BatteryReport report)
+    private static void ParseBatteryReport(string html, BatteryReport report)
     {
         try
         {
             var designMatch = Regex.Match(html,
-                @"DESIGN\s*CAPACITY.*?(\d[\d,\.]*)\s*mWh",
+                @"DESIGN\s*CAPACITY.*?(\d[\d\s,\.]*)\s*mWh",
                 RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
             if (designMatch.Success)
             {
-                string value = designMatch.Groups[1].Value.Replace(",", "");
+                string value = CleanNumber(designMatch.Groups[1].Value);
                 report.DesignCapacity = $"{value} mWh";
-            }
-            else
-            {
-                report.DesignCapacity = "Não disponível";
             }
 
             var fullChargeMatch = Regex.Match(html,
-                @"FULL\s*CHARGE\s*CAPACITY.*?(\d[\d,\.]*)\s*mWh",
+                @"FULL\s*CHARGE\s*CAPACITY.*?(\d[\d\s,\.]*)\s*mWh",
                 RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
             if (fullChargeMatch.Success)
             {
-                string value = fullChargeMatch.Groups[1].Value.Replace(",", "");
+                string value = CleanNumber(fullChargeMatch.Groups[1].Value);
                 report.FullChargeCapacity = $"{value} mWh";
-            }
-            else
-            {
-                report.FullChargeCapacity = "Não disponível";
             }
 
             if (designMatch.Success && fullChargeMatch.Success)
             {
-                string designStr = designMatch.Groups[1].Value.Replace(",", "").Replace(".", "");
-                string fullStr = fullChargeMatch.Groups[1].Value.Replace(",", "").Replace(".", "");
+                string designStr = CleanNumber(designMatch.Groups[1].Value);
+                string fullStr = CleanNumber(fullChargeMatch.Groups[1].Value);
 
                 if (double.TryParse(designStr, out double design) &&
                     double.TryParse(fullStr, out double full) && design > 0)
                 {
                     double health = (full / design) * 100.0;
-                    report.Health = $"{health:F1}%";
+                    report.Health = $"{Math.Min(100.0, health):F1}%";
                 }
-                else
-                {
-                    report.Health = "Não calculável";
-                }
-            }
-            else
-            {
-                report.Health = "Não disponível";
             }
 
             var cycleMatch = Regex.Match(html,
@@ -185,9 +302,9 @@ public class BatteryService : IBatteryService
             {
                 report.CycleCount = cycleMatch.Groups[1].Value;
             }
-            else
+            else if (string.IsNullOrEmpty(report.CycleCount))
             {
-                report.CycleCount = "Não disponível";
+                report.CycleCount = "Não informado";
             }
 
             var manufacturerMatch = Regex.Match(html,
@@ -196,23 +313,19 @@ public class BatteryService : IBatteryService
 
             if (manufacturerMatch.Success)
             {
-                string manufacturer = manufacturerMatch.Groups[1].Value.Trim();
-                manufacturer = Regex.Replace(manufacturer, @"<[^>]+>", "").Trim();
-                report.Manufacturer = string.IsNullOrWhiteSpace(manufacturer) ? "Não disponível" : manufacturer;
-            }
-            else
-            {
-                report.Manufacturer = "Não disponível";
+                string manufacturer = Regex.Replace(manufacturerMatch.Groups[1].Value, @"<[^>]+>", "").Trim();
+                report.Manufacturer = string.IsNullOrWhiteSpace(manufacturer) ? "Integrada" : manufacturer;
             }
         }
         catch
         {
-            if (string.IsNullOrEmpty(report.DesignCapacity)) report.DesignCapacity = "Erro na leitura";
-            if (string.IsNullOrEmpty(report.FullChargeCapacity)) report.FullChargeCapacity = "Erro na leitura";
             if (string.IsNullOrEmpty(report.Health)) report.Health = "Erro na leitura";
-            if (string.IsNullOrEmpty(report.CycleCount)) report.CycleCount = "Erro na leitura";
-            if (string.IsNullOrEmpty(report.Manufacturer)) report.Manufacturer = "Erro na leitura";
         }
+    }
+
+    private static string CleanNumber(string raw)
+    {
+        return Regex.Replace(raw, @"[^\d]", "").Trim();
     }
 }
 #endif

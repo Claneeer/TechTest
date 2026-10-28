@@ -41,7 +41,7 @@
                    CornerRadius="14"
                    Padding="10"
                    HasShadow="False">
-                <Grid>
+                <Grid VerticalOptions="Fill" HorizontalOptions="Fill">
                     <!-- Simulated camera card when not started -->
                     <VerticalStackLayout x:Name="LayoutPlaceholder" 
                                          VerticalOptions="Center" 
@@ -62,11 +62,15 @@
                                WidthRequest="300" />
                     </VerticalStackLayout>
 
-                    <!-- Container seguro onde a CameraView sera injetada apenas se houver hardware -->
+                    <!-- Container de superfície de vídeo com elemento âncora para garantir Measure/Arrange não-zero no WinUI 3 -->
                     <ContentView x:Name="CameraContainer"
                                  IsVisible="False"
                                  VerticalOptions="Fill"
+                                 HorizontalOptions="Fill">
+                        <BoxView Color="Transparent"
+                                 VerticalOptions="Fill"
                                  HorizontalOptions="Fill" />
+                    </ContentView>
                 </Grid>
             </Frame>
 

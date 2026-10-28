@@ -89,6 +89,8 @@ public class HardwareSpecs
     public string BaseBoardProduct { get; set; } = "";
     public string BaseBoardSerial { get; set; } = "";
     public string BiosSerial { get; set; } = "";
+    public string BatterySummary { get; set; } = "Bateria não detectada (Computador de Mesa / Sem Bateria)";
+    public string BatteryReportPath { get; set; } = "";
 }
 
 /// <summary>Dispositivo PnP com falha de driver (Win32_PnPEntity.ConfigManagerErrorCode != 0).</summary>
