@@ -28,3 +28,17 @@ Desktop.ini
 *.log
 *.exe
 *.pdb
+
+# Laudos gerados
+Laudos/
+
+# Dependencias e artefatos de build
+node_modules/
+packages/
+*.nupkg
+*.dll
+*.msix
+*.apk
+*.app/
+TestResults/
+BenchmarkDotNet.Artifacts/

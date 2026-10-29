@@ -1,0 +1,35 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  test:
+    # WinForms exige Windows
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # Restaura/compila apenas o projeto de testes (e o WinForms referenciado),
+      # evitando a necessidade do workload MAUI.
+      - name: Restore
+        run: dotnet restore TechTest.Tests/TechTest.Tests.csproj
+
+      - name: Test
+        run: dotnet test TechTest.Tests/TechTest.Tests.csproj --no-restore --configuration Release --logger "trx;LogFileName=results.trx" --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/
+
